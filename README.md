@@ -242,6 +242,19 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 >
 > **关于"贵不贵"的客观补充**：input ratio 看起来涨到 **4.01×**，但 `Estimated cost ratio` 仅 **1.29×**。原因是 input 单价只有 output 的 1/6（gpt-5.5：$5 vs $30 per 1M），并且 `+335` 这种**稳定档位极有可能命中 prompt cache**（OpenAI cache 命中部分约按 10% input 单价计费）。所以 wrapper 的存在是真的，**但实际 ¥ 开销远小于 input token 倍数所暗示的水平**。下面"评分维度"小节有更详细的解释。
 
+#### 假设 wrapper 命中 prompt cache 时的成本（情景分析）
+
+audit 报告里新增了 `candidate_to_baseline_cost_under_cache_scenarios` 字段，按不同 cache 命中率给出 cost ratio 区间。agnx 这次审计的多余 8326 个 input token 在不同假设下的实际成本：
+
+| 假设 wrapper 命中率 | 候选实际成本 | cost ratio vs baseline |
+|---|---|---|
+| 0% (即 raw `Estimated cost ratio`) | $0.17482 | **1.291×** |
+| 50% | $0.15609 | **1.153×** |
+| 90% | $0.14110 | **1.042×** |
+| 100% | $0.13735 | **1.014×** |
+
+> 这是一个"如果上游真的对固定前缀做了 prompt cache"的敏感度区间，不是观察结论。OpenAI 官方对命中部分的标准折扣是按 input 单价的 10% 计费（即节省 90%）。如果该候选服务的上游也按此政策走，**当 wrapper 命中率达到 90% 时，实际 ¥ 开销和 baseline 几乎相同**。
+
 ### 🎯 评分维度
 
 | 维度 | 含义 |
@@ -263,6 +276,8 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 > 2. **稳定的 wrapper 前缀大概率命中 prompt cache**。如果中转方注入的是每次请求都相同的固定内容（典型征兆就是 `+335` 这种稳定档位），按 OpenAI Prompt Caching，命中部分约按 **10% 原 input 单价**计费，再次摊薄成本。
 >
 > 想看真实钱袋负担请直接读报告里的 `candidate_to_baseline_estimated_cost_ratio`（README 案例对比表里也列出了 "Estimated cost"）—— 这两个 suspicion 分数检出的是 **wrapper / 路由层的存在**，回答的是"是否有差异"，**不直接等价于"贵了多少倍"**。建议对照三个数一起看：input ratio + cost ratio + 是否存在稳定档位。
+>
+> 报告里还有一个 `candidate_to_baseline_cost_under_cache_scenarios` 字段，按 0% / 50% / 90% / 100% wrapper 命中率给出 cost ratio 区间。如果 wrapper 是稳定固定前缀（最常见情况），90% 命中假设下的数字通常和 baseline 相差无几 —— 上面 agnx 案例的表里能直接看到。
 
 ### 🚀 Codex Fast 模式判断
 
@@ -544,6 +559,19 @@ The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + 
 >
 > **Cost-impact caveat**: input ratio looks like **4.01×**, but `Estimated cost ratio` is only **1.29×**. Two reasons: input is 1/6 the price of output for `gpt-5.5` ($5 vs $30 per 1M tokens), and a stable `+335` tier is a **prime prompt-cache candidate** (OpenAI charges cached prefixes at ~10% of the input rate). So the wrapper layer is real, **but the actual dollar overhead is much smaller than the input-token multiple suggests**. See the "Score reference" subsection below for the full reasoning.
 
+#### Cost sensitivity if the wrapper hits prompt cache
+
+Audit reports now include `candidate_to_baseline_cost_under_cache_scenarios`, a what-if range over cache hit rates. For agnx's 8,326 extra input tokens:
+
+| Wrapper cache hit rate | Candidate cost | Cost ratio vs baseline |
+|---|---|---|
+| 0% (raw `Estimated cost ratio`) | $0.17482 | **1.291×** |
+| 50% | $0.15609 | **1.153×** |
+| 90% | $0.14110 | **1.042×** |
+| 100% | $0.13735 | **1.014×** |
+
+> This is a sensitivity range, not an observation. The OpenAI default is to price cached prefixes at 10% of the input rate (a 90% discount). If this candidate's upstream follows the same policy, **at 90% wrapper cache hit, the real dollar cost is effectively identical to the baseline**.
+
 ### 🎯 Score reference
 
 | Score | Meaning |
@@ -565,6 +593,8 @@ The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + 
 > 2. **A stable wrapper prefix is a prime prompt-cache candidate**. If the relay injects identical fixed content on every call (the giveaway: a stable `+335` tier), OpenAI Prompt Caching charges cached prefixes at **~10% of the input rate**, further damping the cost impact.
 >
 > For the real wallet impact, read `candidate_to_baseline_estimated_cost_ratio` in the report (and the "Estimated cost" row in this README's case tables). These two suspicion scores detect the **existence of a wrapper / routing layer** — they answer "is there a difference," not "how much more expensive." Read the three numbers together: input ratio + cost ratio + whether a stable tier exists.
+>
+> Reports also include `candidate_to_baseline_cost_under_cache_scenarios`, a what-if range over 0% / 50% / 90% / 100% wrapper cache hit rates. When the wrapper is a stable fixed prefix (the common case), the 90% hit assumption typically lands near the baseline — see the agnx case study above for a concrete example.
 
 ### 🚀 Reading speed results
 

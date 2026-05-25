@@ -477,6 +477,68 @@ class TestAssessment(unittest.TestCase):
         self.assertIn("material token/cost overhead", result["plain_language"])
 
 
+class TestCacheAdjustedCostScenarios(unittest.TestCase):
+    def _summary(self, input_tokens: int, output_tokens: int, model: str = "gpt-5.5"):
+        return {
+            "tokens": {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens},
+            "estimated_cost": pp.estimate_cost(
+                [{"model": model, "tokens": {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}}]
+            ),
+        }
+
+    def test_unavailable_when_either_cost_missing(self):
+        candidate = self._summary(100, 200)
+        baseline_no_cost = {"tokens": {"input": 100, "output": 200, "total": 300}, "estimated_cost": {"available": False}}
+        result = pp.cache_adjusted_cost_scenarios(candidate, baseline_no_cost)
+        self.assertFalse(result["available"])
+
+    def test_no_overhead_means_all_scenarios_equal_to_raw(self):
+        # Identical baseline + candidate → no overhead → cache assumption changes nothing.
+        same = self._summary(2770, 4052)
+        result = pp.cache_adjusted_cost_scenarios(same, same)
+        self.assertTrue(result["available"])
+        self.assertEqual(result["overhead_input_tokens"], 0)
+        ratios = [s["cost_ratio"] for s in result["scenarios"]]
+        self.assertEqual(set(ratios), {1.0})
+
+    def test_agnx_like_scenario_matches_hand_math(self):
+        # baseline: 2770 in / 4052 out  → cost = 2770*5 + 4052*30 per 1M = 0.13541
+        # candidate: 11096 in / 3978 out → cost = 11096*5 + 3978*30 per 1M = 0.17482
+        # overhead = 8326 input tokens
+        # at 90% cache hit and 10% cached price: savings = 0.9 * 8326*5/1M * 0.9 = ~0.03372
+        # adjusted candidate cost ≈ 0.14110; ratio ≈ 0.14110 / 0.13541 ≈ 1.042
+        baseline = self._summary(2770, 4052)
+        candidate = self._summary(11096, 3978)
+        result = pp.cache_adjusted_cost_scenarios(candidate, baseline)
+        self.assertTrue(result["available"])
+        self.assertEqual(result["overhead_input_tokens"], 8326)
+        by_hit = {s["wrapper_cache_hit_rate"]: s["cost_ratio"] for s in result["scenarios"]}
+        # Raw ratio (0% cached) matches the regular cost_ratio path
+        self.assertAlmostEqual(by_hit[0.0], 1.291, places=2)
+        # 90% cache hit drops cost to within ~5% of baseline
+        self.assertAlmostEqual(by_hit[0.9], 1.042, places=2)
+        # 100% cache hit drops cost to ~baseline
+        self.assertAlmostEqual(by_hit[1.0], 1.014, places=2)
+
+    def test_cache_price_factor_zero_means_full_discount(self):
+        baseline = self._summary(2770, 4052)
+        candidate = self._summary(11096, 3978)
+        result = pp.cache_adjusted_cost_scenarios(candidate, baseline, cache_price_factor=0.0)
+        by_hit = {s["wrapper_cache_hit_rate"]: s["cost_ratio"] for s in result["scenarios"]}
+        # 100% hit + 0% cached price → overhead is free → cost ratio purely from output diff
+        # output went 4052 -> 3978, all priced at $30/1M
+        # adjusted_cand = 2770*5 + 3978*30 = 0.13319; baseline = 0.13541; ratio = 0.9836
+        self.assertAlmostEqual(by_hit[1.0], 0.9836, places=2)
+
+    def test_hit_rate_clamped_to_unit_interval(self):
+        baseline = self._summary(2770, 4052)
+        candidate = self._summary(11096, 3978)
+        # Out-of-range hit rates are clamped to [0, 1]
+        result = pp.cache_adjusted_cost_scenarios(candidate, baseline, hit_rates=(-0.5, 2.0))
+        rates = [s["wrapper_cache_hit_rate"] for s in result["scenarios"]]
+        self.assertEqual(rates, [0.0, 1.0])
+
+
 class TestRiskLevel(unittest.TestCase):
     def test_boundaries(self):
         self.assertEqual(pp.risk_level(0), "low")

@@ -1003,6 +1003,9 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
                 cand_summary.get("estimated_cost", {}),
                 base_summary.get("estimated_cost", {}),
             ),
+            "candidate_to_baseline_cost_under_cache_scenarios": cache_adjusted_cost_scenarios(
+                cand_summary, base_summary,
+            ),
             "overhead_clusters": clusters,
             "speed_comparison": speed_comparison,
             "profile_comparison": profile_comparison,
@@ -1449,6 +1452,64 @@ def _plain_language_assessment(verdict: str, level: str, issues: list[str]) -> s
     return "The candidate did not meet the quality gate against the baseline."
 
 
+def cache_adjusted_cost_scenarios(
+    candidate_summary: dict[str, Any],
+    baseline_summary: dict[str, Any],
+    cache_price_factor: float = 0.1,
+    hit_rates: tuple[float, ...] = (0.0, 0.5, 0.9, 1.0),
+) -> dict[str, Any]:
+    """What-if cost ratios assuming the candidate's extra input tokens hit prompt cache.
+
+    The audit cannot observe cache behavior directly; this returns a sensitivity
+    range so readers can see how much of the raw cost gap is driven by tokens that
+    are plausibly cacheable (stable wrapper / adapter prefixes).
+    """
+    cand_cost = candidate_summary.get("estimated_cost") or {}
+    base_cost = baseline_summary.get("estimated_cost") or {}
+    if not cand_cost.get("available") or not base_cost.get("available"):
+        return {"available": False}
+
+    base_total_cost = float(base_cost.get("estimated_cost_usd") or 0)
+    cand_total_cost = float(cand_cost.get("estimated_cost_usd") or 0)
+    if not base_total_cost:
+        return {"available": False, "reason": "baseline estimated cost is zero"}
+
+    cand_input = int((candidate_summary.get("tokens") or {}).get("input") or 0)
+    base_input = int((baseline_summary.get("tokens") or {}).get("input") or 0)
+    overhead_tokens = max(0, cand_input - base_input)
+
+    input_price = float(cand_cost.get("input_price_per_m") or 0)
+    overhead_cost_at_full_rate = overhead_tokens * input_price / 1_000_000
+    cache_factor = max(0.0, min(1.0, float(cache_price_factor)))
+    discount_per_cached_token = 1.0 - cache_factor
+
+    scenarios = []
+    for raw_rate in hit_rates:
+        hit_rate = max(0.0, min(1.0, float(raw_rate)))
+        savings = hit_rate * overhead_cost_at_full_rate * discount_per_cached_token
+        adjusted = cand_total_cost - savings
+        scenarios.append(
+            {
+                "wrapper_cache_hit_rate": round(hit_rate, 4),
+                "candidate_cost_usd": round(adjusted, 8),
+                "cost_ratio": round(adjusted / base_total_cost, 4),
+            }
+        )
+
+    return {
+        "available": True,
+        "overhead_input_tokens": overhead_tokens,
+        "cache_price_factor_assumed": round(cache_factor, 4),
+        "scenarios": scenarios,
+        "notes": [
+            "What-if scenarios: the candidate's extra input tokens may be a stable wrapper prefix that hits prompt cache.",
+            "Real cache behavior depends on the upstream provider's caching policy and how stable the prefix is across calls.",
+            f"Cached tokens are priced at {cache_factor:.0%} of the input rate (OpenAI default at time of writing).",
+            "Use this as a sensitivity range, not a guarantee.",
+        ],
+    }
+
+
 def ratio(a: float, b: float) -> float | None:
     if not b:
         return None
@@ -1538,6 +1599,17 @@ def print_audit_summary(report: dict[str, Any]) -> None:
     ratios = summary["candidate_to_baseline_token_ratio"]
     print(f"Token ratio candidate/baseline: input={ratios['input']}, output={ratios['output']}, total={ratios['total']}")
     print(f"Estimated cost ratio: {summary['candidate_to_baseline_estimated_cost_ratio']}")
+    cache_scenarios = summary.get("candidate_to_baseline_cost_under_cache_scenarios") or {}
+    if cache_scenarios.get("available"):
+        scenario_pairs = [
+            f"{int(s['wrapper_cache_hit_rate'] * 100)}%={s['cost_ratio']}"
+            for s in cache_scenarios.get("scenarios", [])
+        ]
+        if scenario_pairs:
+            print(
+                f"Cost ratio if wrapper overhead cached ({cache_scenarios.get('overhead_input_tokens')} input tokens): "
+                + ", ".join(scenario_pairs)
+            )
     speed = summary.get("speed_comparison", {})
     print(
         "Speed candidate/baseline: "
