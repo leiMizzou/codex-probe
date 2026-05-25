@@ -1,52 +1,80 @@
-# Codex Probe
+<div align="center">
 
-<p align="right">
-  <a href="#中文说明">简体中文</a> |
-  <a href="#english">English</a>
-</p>
+# 🔍 Codex Probe
 
-## 中文说明
+**OpenAI-compatible 中转站 / API 网关黑盒纯净度审计 CLI**
+**Black-box purity audit for OpenAI-compatible model providers & gateways**
 
-Codex Probe 是一个用于黑盒评估 OpenAI-compatible 中转站、API 网关、模型代理是否“纯净”的命令行工具。它可以把你当前 Codex App 使用的官方/可信 provider 作为 baseline，再测试第三方中转站的质量、token、功能和速度是否接近 baseline。
+<kbd>🐍 Python 3.10+</kbd> &nbsp;<kbd>📜 MIT</kbd> &nbsp;<kbd>🧪 Alpha</kbd> &nbsp;<kbd>🔓 Zero dependencies</kbd> &nbsp;<kbd>⚠️ Unofficial</kbd>
 
-它会先用你信任的 provider 建立一个 baseline，然后用同一套复杂题、功能探针和速度指标去测试候选 provider，大致判断：
+<sub>
 
-- 模型质量是否接近 baseline
-- 是否有隐藏 prompt / wrapper 导致 input token 被放大
-- 是否存在多路由、多适配器切换
-- 是否疑似混入较弱模型
-- `gpt-image-2`、snapshot model、JSON schema 等能力是否缺失
-- token 使用量和估算成本是否异常
-- 延迟、p90 响应时间、输出 token/s 是否明显劣化
+[🇨🇳 简体中文](#-简体中文) &nbsp;·&nbsp; [🇬🇧 English](#-english) &nbsp;·&nbsp; [📋 题库 Suite](model_substitution_hard_suite.md) &nbsp;·&nbsp; [📖 完整中文文档](README.zh-CN.md)
 
-它不能证明上游账号到底是 ChatGPT Free、Plus、Pro 还是 Team。API 行为和 ChatGPT 订阅不是同一个权限面；本工具输出的是黑盒证据和风险评分。本项目是非官方工具，不隶属于 OpenAI。
+</sub>
 
-### 快速开始
+</div>
 
-直接运行：
+---
+
+> 用你信任的 Codex provider 作为 baseline，对第三方中转跑同一套复杂题、功能探针和速度指标，输出 token / 质量 / 功能 / 速度差异和综合风险评分。
+>
+> Build a trusted baseline from a provider you already trust, then audit any candidate endpoint against it with the same hard suite, feature probes, and timing measurements.
+
+---
+
+## 🇨🇳 简体中文
+
+### 它能做什么
+
+Codex Probe 是一个 **纯 Python、零依赖** 的命令行工具，用于黑盒判断一个 OpenAI 兼容 endpoint 是否"纯净"。
+
+| ✅ 它能告诉你 | ❌ 它不能告诉你 |
+|---|---|
+| 模型质量是否接近 baseline | 上游账号是 Free / Plus / Pro / Team |
+| input token 是否被隐藏 wrapper 放大 | 中转方内部真实路由细节 |
+| 是否存在多路由 / 多适配器切换 | 中转方主观声称的"原生" / "官转" |
+| 是否疑似混入较弱模型 | 加密学层面的"证明" |
+| `gpt-image-2` / snapshot / JSON schema 等能力是否缺失 | |
+| token 使用量、估算成本是否异常 | |
+| median / p90 latency、输出 token/s 是否明显劣化 | |
+
+> ⚠️ 本项目是非官方工具，不隶属于 OpenAI。输出的是黑盒证据和风险评分，不是定罪结论。
+
+### 安装 & 快速开始
+
+需要 Python 3.10+（若要用 `--current-codex` 从 `~/.codex/config.toml` 读 baseline，建议 3.11+）。
 
 ```bash
+# 直接运行
 python3 codex_probe.py --help
-```
 
-也可以安装成本地 CLI：
-
-```bash
+# 或安装为本地 CLI（推荐）
 python3 -m pip install -e .
 codex-probe --help
 ```
 
-### 1. 使用内置参考 Baseline
+### 三种使用姿势
 
-先查看仓库内置的参考基线：
+<table>
+<tr>
+<th width="33%">1️⃣ 用内置 baseline</th>
+<th width="33%">2️⃣ 自建可信 baseline</th>
+<th width="33%">3️⃣ Audit 候选中转</th>
+</tr>
+<tr>
+<td valign="top">最快上手，无需可信 provider，直接对比仓库内置参考样本。</td>
+<td valign="top">更贴近你自己的 Codex 配置，可标注 <code>--profile codex-fast</code>。</td>
+<td valign="top">跑题、对比、出 token / 质量 / 功能 / 速度 / 综合风险评分。</td>
+</tr>
+</table>
+
+<details open>
+<summary><b>方式 1：使用内置参考 baseline（最快）</b></summary>
 
 ```bash
 python3 codex_probe.py list-baselines
-```
 
-然后测试候选中转：
-
-```bash
 export PROVIDER_BASE_URL="https://candidate.example.com/v1"
 export PROVIDER_API_KEY="your-api-key"
 
@@ -61,9 +89,10 @@ python3 codex_probe.py audit \
   --output reports/candidate-vs-official-sub2api-gpt-5.5-xhigh.json
 ```
 
-### 2. 生成自己的 Baseline
+</details>
 
-如果你更信任当前 Codex 配置的 provider：
+<details>
+<summary><b>方式 2：从当前 Codex 配置生成可信 baseline</b></summary>
 
 ```bash
 python3 codex_probe.py baseline \
@@ -76,7 +105,7 @@ python3 codex_probe.py baseline \
   --output baselines/current-codex-gpt-5.5-xhigh.json
 ```
 
-`--image-probe` 会调用 `gpt-image-2`，如果图片能力已开启，可能消耗图片额度。
+> `--image-probe` 会调用 `gpt-image-2`，可能消耗图片额度。
 
 也可以显式指定可信 endpoint：
 
@@ -94,7 +123,10 @@ python3 codex_probe.py baseline \
   --output baselines/trusted-gpt-5.5-xhigh.json
 ```
 
-### 3. 使用自己的 Baseline 测试候选中转
+</details>
+
+<details>
+<summary><b>方式 3：使用自己的 baseline 审计候选</b></summary>
 
 ```bash
 export PROVIDER_BASE_URL="https://candidate.example.com/v1"
@@ -110,67 +142,91 @@ python3 codex_probe.py audit \
   --output reports/candidate-gpt-5.5-xhigh-audit.json
 ```
 
-报告会自动脱敏，不会保存 API key。
+> 报告会自动脱敏，不保存 API key。
 
-### 内置参考基线
+</details>
 
-仓库内置了一份可直接比较的参考基线：
+### 📦 内置参考基线
+
+仓库内置一份可直接比较的脱敏参考样本：
 
 ```text
 id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 ```
 
-背景配置：
+| 项 | 值 |
+|---|---|
+| 生成时间 | 2026-05-25 13:54:32 UTC |
+| Provider | 自建 `sub2api` relay |
+| Base URL | `https://20x-fast-2.111138.xyz/v1` |
+| 服务器 | 16C16G VPS |
+| 模型 / 推理强度 | `gpt-5.5` / `xhigh` |
+| 题库 | `hard-v1`，16 case × 2 repeats，`temperature=0` |
+| 通过率 | **32 / 32** |
+| Token (in / out / total) | 2770 / 4052 / 6822 |
+| Latency (median / p90) | 5.9155 s / 8.9552 s |
+| 功能探针 | ✅ `gpt-image-2`（b64_json）· ✅ snapshot `gpt-5.5-2026-04-23` · `/models` 9 个 ID |
 
-- 生成时间：2026-05-25 13:54:32 UTC。
-- Provider：自建 `sub2api` relay，base URL 为 `https://20x-fast-2.111138.xyz/v1`。
-- 服务器：16C16G VPS。
-- 模型：`gpt-5.5`。
-- 推理强度：`xhigh`。
-- 测试设置：`hard-v1` 题库，16 个 case，每题重复 2 次，`temperature=0`，包含 `gpt-image-2` 探针。
-- 基线结果：`32/32` 通过，input `2770`，output `4052`，total `6822`，median latency `5.9155s`，p90 latency `8.9552s`。
-- 功能结果：`gpt-image-2` 可用并返回 `b64_json`；snapshot `gpt-5.5-2026-04-23` 可用；`/models` 中列出 9 个模型 ID。
+> 这不是 OpenAI 官方成绩，也不能证明候选服务的上游账号类型。它是一份固定脱敏的黑盒锚点，用来对比 token、功能、速度和输出质量。
 
-这不是 OpenAI 官方发布的标准成绩，也不能证明候选服务的上游账号类型。它是一份固定的、已脱敏的黑盒参考样本，方便使用者拿同一套题直接对比 token、功能、速度和输出质量。
+### 📋 案例：agnx 对比内置基线
 
-### 案例：agnx 对比内置基线
+用内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`（`gpt-5.5` + `xhigh`）。
 
-用这份内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`、`gpt-5.5`、`xhigh`，结果如下：
+> **结论**：质量满分、延迟接近基线，作为日常 `gpt-5.5 xhigh` 调用有价格和速度优势；不适合需要 Codex / Spark / PPT 相关模型或高并发的场景。
+>
+> 候选服务购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)
+> （实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准）
 
-这个候选服务的购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)。本轮测试里它质量全通过，延迟接近内置基线，作为 `gpt-5.5` xhigh 日常调用有价格和速度优势。它不适合需要 Codex、Spark、PPT 相关模型/能力或高并发的场景；实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准。
+#### 关键指标
 
-```text
-Pass rate: baseline=1.0, candidate=1.0, delta=0.0
-Token ratio candidate/baseline: input=3.5119, output=0.9603, total=1.9963
-Estimated cost ratio: 1.2213
-Speed candidate/baseline: median_latency_ratio=1.0188, p90_latency_ratio=0.9849, output_tokens_per_s_ratio=0.9066
-Profile match: verdict=unlikely_match, confidence=49.0
+| 维度 | Baseline | Candidate | Ratio | |
+|---|---|---|---|---|
+| Pass rate | 1.00 | 1.00 | Δ = 0.0 | ✅ |
+| Input tokens | 1× | **3.51×** | — | 🔴 偏高 |
+| Output tokens | 1× | 0.96× | — | ✅ |
+| Total tokens | 1× | 2.00× | — | 🟡 |
+| Estimated cost | 1× | 1.22× | — | 🟡 |
+| Median latency | 1× | 1.02× | — | ✅ |
+| p90 latency | 1× | 0.98× | — | ✅ |
+| Output tokens/s | 1× | 0.91× | — | ✅ |
 
-quality_score: 100/100
-wrapper_or_routing_suspicion: 70/100
-model_substitution_suspicion: 0/100
-billing_overhead_suspicion: 89/100
-feature_gap_suspicion: 55/100
-speed_suspicion: 0/100
-overall_risk: 43.55/100
-```
+#### 风险评分
 
-解读：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，并形成 `+335` 左右的固定档位，说明存在隐藏 wrapper、适配器或路由差异的可能性。候选服务还缺少基线中可用的 `gpt-image-2` 和 snapshot 能力。
+| Score | Value | 解读 |
+|---|---|---|
+| `quality_score` | **100 / 100** | 无弱模型替换信号 |
+| `wrapper_or_routing_suspicion` | 70 / 100 | 🟡 存在固定 input token 档位 |
+| `model_substitution_suspicion` | 0 / 100 | ✅ |
+| `billing_overhead_suspicion` | 89 / 100 | 🔴 token 用量明显高 |
+| `feature_gap_suspicion` | 55 / 100 | 🟡 缺 `gpt-image-2` 和 snapshot |
+| `speed_suspicion` | 0 / 100 | ✅ |
+| `overall_risk` | **43.55 / 100** | — |
+| `profile_comparison` | `unlikely_match` (49.0) | — |
 
-### 分数含义
+> **解读**：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，形成 `+335` 左右的固定档位 —— 这是隐藏 wrapper / 适配器 / 路由差异的典型指纹。候选服务还缺少基线中可用的 `gpt-image-2` 和 snapshot 能力。
 
-- `quality_score`: 复杂客观题正确率。
-- `wrapper_or_routing_suspicion`: 是否出现固定 input token 档位，常见于隐藏 wrapper 或不同适配器。
-- `model_substitution_suspicion`: 是否疑似混入弱模型，重点看难题掉分和不同 token 档位的正确率差异。
-- `billing_overhead_suspicion`: token / 成本是否明显高于 baseline。
-- `feature_gap_suspicion`: `gpt-image-2`、snapshot model、JSON schema 等能力是否缺失。
-- `speed_suspicion`: median latency、p90 latency、输出 token/s 是否明显差于 baseline。
-- `profile_comparison`: 如果 baseline 用 `--profile codex-fast` 标注，会输出候选是否匹配这个 Codex Fast baseline。
-- `overall_risk`: 综合风险评分。
+### 🎯 评分维度
 
-### Codex Fast 模式判断
+| 维度 | 含义 |
+|---|---|
+| `quality_score` | 复杂客观题正确率 |
+| `wrapper_or_routing_suspicion` | 是否出现固定 input token 档位，常见于隐藏 wrapper 或不同适配器 |
+| `model_substitution_suspicion` | 是否疑似混入弱模型 —— 重点看难题掉分和不同 token 档位的正确率差异 |
+| `billing_overhead_suspicion` | token / 成本是否明显高于 baseline |
+| `feature_gap_suspicion` | `gpt-image-2`、snapshot model、JSON schema 等能力是否缺失 |
+| `speed_suspicion` | median / p90 latency、输出 token/s 是否明显差于 baseline |
+| `profile_comparison` | baseline 用 `--profile codex-fast` 标注时，输出候选是否匹配该 baseline |
+| `overall_risk` | 综合风险评分 |
 
-黑盒请求无法证明候选 provider 内部真的用了 Codex Fast 模式，但可以判断它是否“像你的 Codex Fast 基线”。生成 baseline 时加上 profile：
+### 🚀 Codex Fast 模式判断
+
+黑盒请求无法证明候选 provider 内部用了 Codex Fast 模式，但可以判断它是否"像你的 Codex Fast baseline"。
+
+<details>
+<summary><b>展开示例</b></summary>
+
+生成 baseline 时加上 profile：
 
 ```bash
 python3 codex_probe.py baseline \
@@ -188,88 +244,110 @@ python3 codex_probe.py baseline \
 Profile match: verdict=matches_baseline_profile, confidence=...
 ```
 
-如果想区分 Fast 和更慢/更深的模式，分别生成两个 baseline，例如 `--profile codex-fast` 和 `--profile codex-deep`，然后同一个候选中转分别 audit 两次，看它更接近哪一个。
+如果想区分 Fast 和更慢/更深的模式，分别生成两个 baseline（`--profile codex-fast` 和 `--profile codex-deep`），同一个候选中转分别 audit 两次，看更接近哪一个。
 
-如果候选 provider 出现类似：
+</details>
+
+#### Token 档位的读法
+
+候选 provider 出现类似：
 
 ```text
 +0 input tokens
 +335 input tokens
 ```
 
-说明它很可能存在隐藏包装或不同路由。如果两个档位都能通过复杂题，更像 wrapper / routing 成本问题；如果某个档位明显更容易错，更像混入弱模型。
+→ 很可能存在隐藏包装或不同路由。
+- **两个档位都通过复杂题** → 更像 wrapper / routing 成本问题
+- **某个档位明显更容易错** → 更像混入弱模型
 
-完整中文说明见 [README.zh-CN.md](README.zh-CN.md)，题库说明见 [model_substitution_hard_suite.md](model_substitution_hard_suite.md)。
+### ⚠️ 重要限制
+
+- 这是黑盒启发式评估，**不是密码学证明**
+- 中转站可以伪造返回的 model 名
+- API 行为无法可靠证明上游是 ChatGPT Free / Plus / Pro / Team
+- `gpt-image-2` 能不能用，更多说明 API/project/group 权限，不直接说明 ChatGPT 订阅等级
+- token 数是 provider 返回的，可能包含隐藏 prompt、适配器包装或计费层开销
+
+> 完整中文说明见 **[README.zh-CN.md](README.zh-CN.md)**，题库说明见 **[model_substitution_hard_suite.md](model_substitution_hard_suite.md)**。
 
 ---
 
-## English
+## 🇬🇧 English
 
-Black-box purity audit tooling for OpenAI-compatible model providers and API gateways.
+### What it does
 
-Codex Probe helps you compare a candidate API endpoint against a trusted baseline, commonly your current trusted Codex App provider, and answer practical questions:
+Codex Probe is a **pure-Python, zero-dependency** CLI that compares any OpenAI-compatible endpoint against a trusted baseline (commonly your own trusted Codex provider).
 
-- Is the claimed model behaving close to the baseline on hard deterministic tasks?
-- Does the provider inject hidden prompt/wrapper tokens?
-- Is there evidence of mixed routing or weaker model substitution?
-- Are expected capabilities missing, such as `gpt-image-2` or snapshot model IDs?
-- How different are reported token usage and estimated cost?
-- Is the candidate materially slower in median latency, p90 latency, or output tokens per second?
+| ✅ It can tell you | ❌ It cannot tell you |
+|---|---|
+| Whether the model behaves close to baseline on hard deterministic tasks | The upstream ChatGPT account type (Free / Plus / Pro / Team) |
+| Whether the provider injects hidden prompt/wrapper tokens | The provider's internal real routing |
+| Whether there's evidence of mixed routing or adapter switching | Marketing claims of "official" / "native" |
+| Whether expected features are missing (`gpt-image-2`, snapshot IDs, JSON schema) | Anything at a cryptographic level of proof |
+| Reported token usage and estimated cost diffs | |
+| Latency, p90, output tokens/s diffs | |
 
-It is designed for testing third-party "OpenAI-compatible" gateways, proxy providers, and model resellers. It does **not** prove the upstream account type, and it cannot definitively prove Free / Plus / Pro / Team usage. It reports observable evidence and risk scores. This is an unofficial tool and is not affiliated with OpenAI.
+> ⚠️ Unofficial tool, not affiliated with OpenAI. Reports are observable evidence + heuristic risk scores, not legal conclusions.
 
-## What It Tests
+### What it tests
 
-The built-in hard suite includes deterministic prompts for:
+The built-in `hard-v1` suite has 16 deterministic prompts covering:
 
-- Python and JavaScript execution reasoning
-- Critical path scheduling
-- Weighted graph shortest path with tie-breaking
-- Decoy retrieval
-- SQL-style aggregation
-- Conditional probability
-- Mini DSL interpretation
-- Calendar arithmetic
-- Instruction-injection resistance
-- Strict JSON output
-- Bug localization
-- Impossible-constraint detection
-- Nested JSON extraction
-- Base conversion
-- Stable repetition formatting
+<table>
+<tr>
+<td valign="top" width="50%">
+
+- 🐍 Python execution reasoning
+- 📜 JavaScript execution reasoning
+- 🗓 Critical path scheduling
+- 🛣 Weighted graph shortest path
+- 🎯 Decoy retrieval
+- 📊 SQL-style aggregation
+- 🎲 Conditional probability
+- 🔣 Mini DSL interpretation
+
+</td>
+<td valign="top" width="50%">
+
+- 📆 Calendar arithmetic
+- 🛡 Instruction-injection resistance
+- 🧬 Strict JSON output
+- 🐛 Bug localization
+- 🚫 Impossible-constraint detection
+- 🗂 Nested JSON extraction
+- 🔢 Base conversion
+- 🔁 Stable repetition formatting
+
+</td>
+</tr>
+</table>
 
 See [model_substitution_hard_suite.md](model_substitution_hard_suite.md) for the full prompt suite.
 
-## Install
+### Install
 
-Requires Python 3.10+. Python 3.11+ is recommended if you want `--current-codex` baseline generation from `~/.codex/config.toml`.
-
-Run directly:
+Requires Python 3.10+. Python 3.11+ recommended for `--current-codex` baseline generation from `~/.codex/config.toml`.
 
 ```bash
+# Run directly
 python3 codex_probe.py --help
-```
 
-Or install as a local CLI:
-
-```bash
+# Or install as a local CLI
 python3 -m pip install -e .
 codex-probe --help
 ```
 
-The old `provider-probe` command is still installed as a compatibility alias.
+> The legacy `provider-probe` command is still installed as a compatibility alias.
 
-## 1. Use The Built-In Reference Baseline
+### Three ways to use it
 
-List the packaged reference baselines:
+<details open>
+<summary><b>1. Use the built-in reference baseline (fastest)</b></summary>
 
 ```bash
 python3 codex_probe.py list-baselines
-```
 
-Then audit a candidate provider directly against the packaged baseline:
-
-```bash
 export PROVIDER_BASE_URL="https://candidate.example.com/v1"
 export PROVIDER_API_KEY="sk-..."
 
@@ -284,9 +362,12 @@ python3 codex_probe.py audit \
   --output reports/candidate-vs-official-sub2api-gpt-5.5-xhigh.json
 ```
 
-## 2. Build Your Own Trusted Baseline
+</details>
 
-If you use Codex locally and trust its configured provider:
+<details>
+<summary><b>2. Build your own trusted baseline</b></summary>
+
+If you trust your locally-configured Codex provider:
 
 ```bash
 python3 codex_probe.py baseline \
@@ -299,9 +380,9 @@ python3 codex_probe.py baseline \
   --output baselines/current-codex-gpt-5.5-xhigh.json
 ```
 
-`--image-probe` calls `gpt-image-2` and may consume image credits if enabled.
+> `--image-probe` calls `gpt-image-2` and may consume image credits.
 
-You can also build a baseline from explicit endpoint credentials:
+Or with explicit endpoint credentials:
 
 ```bash
 export PROVIDER_BASE_URL="https://trusted.example.com/v1"
@@ -317,7 +398,10 @@ python3 codex_probe.py baseline \
   --output baselines/trusted-gpt-5.5-xhigh.json
 ```
 
-## 3. Audit A Candidate Provider Against Your Own Baseline
+</details>
+
+<details>
+<summary><b>3. Audit a candidate against your own baseline</b></summary>
 
 ```bash
 export PROVIDER_BASE_URL="https://candidate.example.com/v1"
@@ -333,89 +417,94 @@ python3 codex_probe.py audit \
   --output reports/candidate-gpt-5.5-xhigh-audit.json
 ```
 
-The saved report is redacted. API keys are not written to output files.
+> Saved reports are redacted; API keys are not written to output.
 
-## Built-In Reference Baseline
+</details>
 
-This repository includes one packaged reference baseline:
+### 📦 Built-in reference baseline
+
+Packaged in the repo:
 
 ```text
 id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 ```
 
-Background:
+| Field | Value |
+|---|---|
+| Generated | 2026-05-25 13:54:32 UTC |
+| Provider | self-hosted `sub2api` relay |
+| Base URL | `https://20x-fast-2.111138.xyz/v1` |
+| Server | 16C16G VPS |
+| Model / Effort | `gpt-5.5` / `xhigh` |
+| Suite | `hard-v1`, 16 cases × 2 repeats, `temperature=0` |
+| Pass rate | **32 / 32** |
+| Tokens (in / out / total) | 2770 / 4052 / 6822 |
+| Latency (median / p90) | 5.9155 s / 8.9552 s |
+| Features | ✅ `gpt-image-2` (b64_json) · ✅ snapshot `gpt-5.5-2026-04-23` · 9 model IDs in `/models` |
 
-- Generated at: 2026-05-25 13:54:32 UTC.
-- Provider: self-hosted `sub2api` relay at `https://20x-fast-2.111138.xyz/v1`.
-- Server: 16C16G VPS.
-- Model: `gpt-5.5`.
-- Reasoning effort: `xhigh`.
-- Test settings: `hard-v1`, 16 cases, 2 repeats per case, `temperature=0`, with the `gpt-image-2` probe enabled.
-- Baseline result: `32/32` passed, input `2770`, output `4052`, total `6822`, median latency `5.9155s`, p90 latency `8.9552s`.
-- Feature result: `gpt-image-2` returned `b64_json`; snapshot `gpt-5.5-2026-04-23` worked; `/models` listed 9 model IDs.
+> Not an OpenAI benchmark. Does not prove any candidate's upstream account type. It is a fixed, redacted black-box reference anchor.
 
-This is not an official OpenAI benchmark and does not prove the upstream account type of any candidate. It is a fixed, redacted black-box reference sample so users can compare token usage, features, latency, and output quality without first finding their own trusted baseline.
+### 📋 Case study: agnx vs the built-in baseline
 
-## Case Study: agnx Against The Built-In Baseline
+The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + `xhigh`.
 
-The current Codex-configured `https://www.agnx.run/v1` endpoint was audited against the built-in baseline with `gpt-5.5` and `xhigh`:
+> **Summary**: passed all quality cases, latency on par with the baseline; practical lower-cost option for `gpt-5.5 xhigh` usage. Not a fit for workflows that need Codex / Spark / PPT-related models or high concurrency.
+>
+> Candidate purchase link: [candidate that passed the current `gpt-5.5` + `xhigh` hard-v1 comparison](https://pay.ldxp.cn/shop/7TD7O3QI) (pricing, availability, permissions, stability, concurrency, and support are governed by the vendor page).
 
-Purchase link for this candidate service: [candidate service that passed the current `gpt-5.5` + `xhigh` hard-v1 comparison](https://pay.ldxp.cn/shop/7TD7O3QI). In this run it passed all quality cases, had similar latency to the built-in baseline, and can be a practical lower-cost option for `gpt-5.5` xhigh usage. It is not a fit for workflows that need Codex, Spark, PPT-related models/capabilities, or high concurrency; actual pricing, availability, permissions, stability, concurrency limits, and support are controlled by the vendor page.
+#### Key ratios
 
-```text
-Pass rate: baseline=1.0, candidate=1.0, delta=0.0
-Token ratio candidate/baseline: input=3.5119, output=0.9603, total=1.9963
-Estimated cost ratio: 1.2213
-Speed candidate/baseline: median_latency_ratio=1.0188, p90_latency_ratio=0.9849, output_tokens_per_s_ratio=0.9066
-Profile match: verdict=unlikely_match, confidence=49.0
+| Metric | Baseline | Candidate | Ratio | |
+|---|---|---|---|---|
+| Pass rate | 1.00 | 1.00 | Δ = 0.0 | ✅ |
+| Input tokens | 1× | **3.51×** | — | 🔴 |
+| Output tokens | 1× | 0.96× | — | ✅ |
+| Total tokens | 1× | 2.00× | — | 🟡 |
+| Estimated cost | 1× | 1.22× | — | 🟡 |
+| Median latency | 1× | 1.02× | — | ✅ |
+| p90 latency | 1× | 0.98× | — | ✅ |
+| Output tokens/s | 1× | 0.91× | — | ✅ |
 
-quality_score: 100/100
-wrapper_or_routing_suspicion: 70/100
-model_substitution_suspicion: 0/100
-billing_overhead_suspicion: 89/100
-feature_gap_suspicion: 55/100
-speed_suspicion: 0/100
-overall_risk: 43.55/100
-```
+#### Risk scores
 
-Interpretation: both providers passed all hard cases, so there was no weak-model substitution signal in this run. The candidate used much more input token budget and formed a stable `+335` input-token tier, which points to hidden wrapper, adapter, or routing differences. The candidate also lacked the baseline's working `gpt-image-2` and snapshot-model probes.
+| Score | Value | Reading |
+|---|---|---|
+| `quality_score` | **100 / 100** | No weak-model signal |
+| `wrapper_or_routing_suspicion` | 70 / 100 | 🟡 Fixed input-token tier present |
+| `model_substitution_suspicion` | 0 / 100 | ✅ |
+| `billing_overhead_suspicion` | 89 / 100 | 🔴 Token usage materially higher |
+| `feature_gap_suspicion` | 55 / 100 | 🟡 Missing `gpt-image-2` and snapshot |
+| `speed_suspicion` | 0 / 100 | ✅ |
+| `overall_risk` | **43.55 / 100** | — |
+| `profile_comparison` | `unlikely_match` (49.0) | — |
 
-## Scores
+> **Reading**: both passed all cases, so no weak-model substitution signal. The candidate used much more input token budget and formed a stable `+335` tier — the typical fingerprint of hidden wrappers / adapters / routing differences. The candidate also lacked the baseline's working `gpt-image-2` and snapshot probes.
 
-Reports include:
+### 🎯 Score reference
 
-- `quality_score`: correctness on the hard deterministic suite.
-- `wrapper_or_routing_suspicion`: fixed input-token overhead tiers, likely hidden wrappers or different adapters.
-- `model_substitution_suspicion`: risk of weaker/mixed model routing based on quality drops or one token tier failing more often.
-- `billing_overhead_suspicion`: candidate uses much more input/total token budget than baseline.
-- `feature_gap_suspicion`: missing or different features compared with baseline.
-- `speed_suspicion`: candidate is materially slower than baseline by median latency, p90 latency, or output tokens per second.
-- `profile_comparison`: when the baseline is labeled with `--profile codex-fast`, reports whether the candidate matches that Codex Fast baseline.
-- `overall_risk`: weighted summary of routing, substitution, billing, feature, and speed issues.
+| Score | Meaning |
+|---|---|
+| `quality_score` | Correctness on the hard deterministic suite |
+| `wrapper_or_routing_suspicion` | Fixed input-token overhead tiers — hidden wrappers or different adapters |
+| `model_substitution_suspicion` | Weaker / mixed model routing — look for quality drops or one tier failing more often |
+| `billing_overhead_suspicion` | Materially higher input / total token budget |
+| `feature_gap_suspicion` | Missing / different features vs baseline |
+| `speed_suspicion` | Materially slower by median / p90 latency or output tokens/s |
+| `profile_comparison` | When baseline has `--profile`, reports whether candidate matches that profile |
+| `overall_risk` | Weighted summary |
 
-Example:
+### 🚀 Reading speed results
 
-```text
-quality_score: 100/100
-wrapper_or_routing_suspicion: 70/100
-model_substitution_suspicion: 0/100
-billing_overhead_suspicion: 100/100
-feature_gap_suspicion: 55/100
-speed_suspicion: 20/100
-overall_risk: 49.25/100
-```
+Every chat completion records total request latency. Reports summarize median / p90 latency, median output tokens/s, and candidate / baseline ratios.
 
-## Reading Speed Results
+> Latency is noisy — treat speed as supporting evidence. A relay much slower than the baseline may be overloaded, routed through an extra wrapper, or using a different upstream. A faster relay is not automatically suspicious; quality, feature, and token evidence still matters.
 
-Every chat completion run records total request latency. Reports summarize median latency, p90 latency, median output tokens per second, and candidate/baseline ratios. Use `--current-codex` to build the baseline from the Codex App provider you already trust, then audit the relay against that file.
+### 🎚 Codex Fast profile matching
 
-Latency is noisy, so treat speed as supporting evidence. A relay that is much slower than the Codex baseline may be overloaded, routed through an extra wrapper, or using a different upstream path. A relay that is faster is not automatically suspicious; quality, feature, and token evidence still matter.
+Codex Probe cannot prove the provider's real upstream mode from black-box responses, but it can test whether the candidate behaves like a trusted Codex Fast baseline.
 
-## Codex Fast Profile Matching
-
-Codex Probe cannot prove the provider's real internal upstream mode from black-box API responses. It can test whether the candidate behaves like a trusted Codex Fast baseline.
-
-Build the baseline with a profile label:
+<details>
+<summary><b>Example</b></summary>
 
 ```bash
 python3 codex_probe.py baseline \
@@ -427,9 +516,11 @@ python3 codex_probe.py baseline \
   --output baselines/current-codex-fast-gpt-5.5-xhigh.json
 ```
 
-Audit reports then include `profile_comparison` with `verdict`, `confidence`, and evidence. To distinguish Fast from a deeper/slower mode, build separate baselines for each mode and compare the same candidate against both.
+Audit reports then include `profile_comparison` with `verdict`, `confidence`, and evidence. To distinguish Fast from a deeper / slower mode, build separate baselines for each mode and compare the same candidate against both.
 
-## Reading Token Clusters
+</details>
+
+### 📊 Reading token clusters
 
 A clean provider should usually have input token counts close to the baseline for the same prompt.
 
@@ -440,16 +531,29 @@ If the candidate forms stable clusters like:
 +335 input tokens
 ```
 
-that is strong evidence of hidden wrapper/routing differences. If both clusters pass the hard suite, this points more toward adapter/wrapper overhead than weaker model substitution. If one cluster fails more often, mixed or weaker upstream routing becomes more suspicious.
+that is strong evidence of hidden wrapper / routing differences:
 
-## Limitations
+- **Both clusters pass the hard suite** → more likely adapter / wrapper overhead
+- **One cluster fails more often** → mixed or weaker upstream routing becomes more suspicious
 
-- This is a black-box heuristic audit, not cryptographic proof.
-- Providers can spoof returned model names.
-- API behavior cannot reliably identify ChatGPT Free / Plus / Pro / Team account type.
-- Image generation success or failure reflects API/project/group permission, not necessarily ChatGPT subscription.
-- Token counts are provider-reported and may include hidden prompt, adapter, or billing-layer overhead.
+### ⚠️ Limitations
 
-## Repository Hygiene
+- Black-box heuristic audit — **not cryptographic proof**
+- Providers can spoof returned model names
+- API behavior cannot reliably identify ChatGPT Free / Plus / Pro / Team account type
+- `gpt-image-2` success / failure reflects API / project / group permission, not necessarily ChatGPT subscription
+- Token counts are provider-reported and may include hidden prompt, adapter, or billing-layer overhead
 
-Generated baselines, audit reports, local images, and Python caches are ignored by default. Do not commit real API keys or private provider reports unless you have reviewed and redacted them.
+### 🧹 Repository hygiene
+
+Generated baselines, audit reports, local images, and Python caches are ignored by default. Do not commit real API keys or private provider reports unless reviewed and redacted.
+
+---
+
+<div align="center">
+<sub>
+
+Made for honest provider comparison · MIT License · [Report an issue](https://github.com/leiMizzou/codex-probe/issues)
+
+</sub>
+</div>
