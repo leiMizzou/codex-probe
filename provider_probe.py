@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Provider Probe: black-box audit for OpenAI-compatible model providers.
+Codex Probe: black-box purity audit for OpenAI-compatible model providers.
 
 Capabilities:
 - Build a trusted baseline from the current Codex provider or explicit provider args.
@@ -637,6 +637,8 @@ def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
             "passes": sum(1 for run in rows if run.get("pass")),
             "runs": len(rows),
             "pass_rate": round(sum(1 for run in rows if run.get("pass")) / len(rows), 4) if rows else 0,
+            "median_latency_s": median([float(run.get("elapsed_s") or 0) for run in rows if run.get("elapsed_s") is not None]),
+            "p90_latency_s": percentile([float(run.get("elapsed_s") or 0) for run in rows if run.get("elapsed_s") is not None], 90),
             "median_input_tokens": median([(run.get("tokens") or {}).get("input", 0) for run in rows]),
             "median_output_tokens": median([(run.get("tokens") or {}).get("output", 0) for run in rows]),
             "median_total_tokens": median([(run.get("tokens") or {}).get("total", 0) for run in rows]),
@@ -648,6 +650,7 @@ def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
         "pass_rate": round(passed / total, 4) if total else 0,
         "tokens": tokens,
         "median_latency_s": median(elapsed),
+        "speed": speed_profile(runs),
         "by_case": by_case,
         "estimated_cost": estimate_cost(runs),
     }
@@ -663,10 +666,60 @@ def choose_canonical_text(rows: list[dict[str, Any]]) -> str:
     return ""
 
 
+def speed_profile(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    latencies = [float(run.get("elapsed_s") or 0) for run in runs if run.get("elapsed_s") is not None]
+    output_tps = []
+    total_tps = []
+    for run in runs:
+        elapsed = float(run.get("elapsed_s") or 0)
+        tokens = run.get("tokens") or {}
+        if elapsed <= 0:
+            continue
+        output_tokens = int(tokens.get("output") or 0)
+        total_tokens = int(tokens.get("total") or 0)
+        if output_tokens > 0:
+            output_tps.append(output_tokens / elapsed)
+        if total_tokens > 0:
+            total_tps.append(total_tokens / elapsed)
+    return {
+        "latency_s": stats(latencies),
+        "output_tokens_per_s": stats(output_tps),
+        "total_tokens_per_s": stats(total_tps),
+    }
+
+
+def stats(values: list[float | int]) -> dict[str, float | int | None]:
+    if not values:
+        return {"min": None, "median": None, "p90": None, "max": None, "mean": None}
+    numeric = [float(value) for value in values]
+    return {
+        "min": round(min(numeric), 4),
+        "median": median(numeric),
+        "p90": percentile(numeric, 90),
+        "max": round(max(numeric), 4),
+        "mean": round(statistics.mean(numeric), 4),
+    }
+
+
 def median(values: list[float | int]) -> float | int | None:
     if not values:
         return None
     return round(float(statistics.median(values)), 4)
+
+
+def percentile(values: list[float | int], pct: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(float(value) for value in values)
+    if len(ordered) == 1:
+        return round(ordered[0], 4)
+    rank = (len(ordered) - 1) * pct / 100
+    low = math.floor(rank)
+    high = math.ceil(rank)
+    if low == high:
+        return round(ordered[int(rank)], 4)
+    fraction = rank - low
+    return round(ordered[low] * (1 - fraction) + ordered[high] * fraction, 4)
 
 
 def estimate_cost(runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -704,6 +757,7 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
         base_case = base_by_case.get(case.case_id, {})
         base_input = float(base_case.get("median_input_tokens") or 0)
         base_total = float(base_case.get("median_total_tokens") or 0)
+        base_latency = float(base_case.get("median_latency_s") or 0)
         base_text = str(base_case.get("canonical_text") or "")
         rows = [run for run in cand_runs if run.get("case_id") == case.case_id]
         for row in rows:
@@ -715,11 +769,15 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
         cand_case_rows = [run for run in rows]
         cand_passes = sum(1 for row in cand_case_rows if row.get("pass"))
         cand_median_total = median([(row.get("tokens") or {}).get("total", 0) for row in cand_case_rows]) or 0
+        cand_median_latency = median([float(row.get("elapsed_s") or 0) for row in cand_case_rows if row.get("elapsed_s") is not None]) or 0
         per_case.append(
             {
                 "case_id": case.case_id,
                 "baseline_pass_rate": base_case.get("pass_rate"),
                 "candidate_pass_rate": round(cand_passes / len(cand_case_rows), 4) if cand_case_rows else 0,
+                "baseline_median_latency_s": base_case.get("median_latency_s"),
+                "candidate_median_latency_s": cand_median_latency,
+                "latency_ratio": ratio(float(cand_median_latency), base_latency),
                 "baseline_median_input_tokens": base_case.get("median_input_tokens"),
                 "candidate_median_input_tokens": median([(row.get("tokens") or {}).get("input", 0) for row in cand_case_rows]),
                 "input_token_delta": round((median([(row.get("tokens") or {}).get("input", 0) for row in cand_case_rows]) or 0) - base_input, 4),
@@ -736,7 +794,8 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
     quality_delta = round(cand_summary["pass_rate"] - base_summary["pass_rate"], 4)
     clusters = summarize_clusters(overheads, pass_by_cluster)
     feature_diff = compare_features(candidate.get("feature_probes", {}), baseline.get("feature_probes", {}))
-    scores = score_candidate(candidate, baseline, clusters, feature_diff, quality_delta, input_ratio, total_ratio)
+    speed_comparison = compare_speed(candidate, baseline)
+    scores = score_candidate(candidate, baseline, clusters, feature_diff, quality_delta, input_ratio, total_ratio, speed_comparison)
 
     return {
         "summary": {
@@ -755,11 +814,57 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
                 base_summary.get("estimated_cost", {}),
             ),
             "overhead_clusters": clusters,
+            "speed_comparison": speed_comparison,
             "feature_diff": feature_diff,
             "scores": scores,
         },
         "per_case": per_case,
     }
+
+
+def compare_speed(candidate: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
+    base_summary = baseline.get("summary", {})
+    cand_summary = candidate.get("summary", {})
+    base_speed = base_summary.get("speed") or {}
+    cand_speed = cand_summary.get("speed") or {}
+
+    base_latency = nested_number(base_speed, "latency_s", "median") or base_summary.get("median_latency_s")
+    cand_latency = nested_number(cand_speed, "latency_s", "median") or cand_summary.get("median_latency_s")
+    base_p90 = nested_number(base_speed, "latency_s", "p90")
+    cand_p90 = nested_number(cand_speed, "latency_s", "p90")
+    base_output_tps = nested_number(base_speed, "output_tokens_per_s", "median")
+    cand_output_tps = nested_number(cand_speed, "output_tokens_per_s", "median")
+    base_total_tps = nested_number(base_speed, "total_tokens_per_s", "median")
+    cand_total_tps = nested_number(cand_speed, "total_tokens_per_s", "median")
+
+    return {
+        "baseline_median_latency_s": base_latency,
+        "candidate_median_latency_s": cand_latency,
+        "median_latency_ratio": ratio(float(cand_latency or 0), float(base_latency or 0)),
+        "baseline_p90_latency_s": base_p90,
+        "candidate_p90_latency_s": cand_p90,
+        "p90_latency_ratio": ratio(float(cand_p90 or 0), float(base_p90 or 0)),
+        "baseline_output_tokens_per_s": base_output_tps,
+        "candidate_output_tokens_per_s": cand_output_tps,
+        "output_tokens_per_s_ratio": ratio(float(cand_output_tps or 0), float(base_output_tps or 0)),
+        "baseline_total_tokens_per_s": base_total_tps,
+        "candidate_total_tokens_per_s": cand_total_tps,
+        "total_tokens_per_s_ratio": ratio(float(cand_total_tps or 0), float(base_total_tps or 0)),
+    }
+
+
+def nested_number(data: dict[str, Any], *path: str) -> float | None:
+    current: Any = data
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    if current is None:
+        return None
+    try:
+        return float(current)
+    except (TypeError, ValueError):
+        return None
 
 
 def answer_match_rate(base_text: str, rows: list[dict[str, Any]]) -> float:
@@ -832,12 +937,14 @@ def score_candidate(
     quality_delta: float,
     input_ratio: float | None,
     total_ratio: float | None,
+    speed_comparison: dict[str, Any],
 ) -> dict[str, Any]:
     quality_score = 100
     wrapper_score = 0
     substitution_score = 0
     billing_score = 0
     feature_score = 0
+    speed_score = 0
 
     if quality_delta < -0.05:
         quality_score -= min(60, int(abs(quality_delta) * 200))
@@ -864,16 +971,48 @@ def score_candidate(
     if feature_diff.get("candidate_model_retrieve_status") != feature_diff.get("baseline_model_retrieve_status"):
         feature_score += 10
 
+    latency_ratio = speed_comparison.get("median_latency_ratio")
+    p90_latency_ratio = speed_comparison.get("p90_latency_ratio")
+    output_tps_ratio = speed_comparison.get("output_tokens_per_s_ratio")
+    if latency_ratio and latency_ratio > 1.5:
+        speed_score += min(60, int((latency_ratio - 1) * 35))
+    if p90_latency_ratio and p90_latency_ratio > 2:
+        speed_score += min(30, int((p90_latency_ratio - 1) * 20))
+    if output_tps_ratio and output_tps_ratio < 0.7:
+        speed_score += min(40, int((1 - output_tps_ratio) * 100))
+
     if candidate["summary"]["pass_rate"] >= baseline["summary"]["pass_rate"] - 0.03:
         substitution_score = max(0, substitution_score - 20)
 
+    wrapper_score = max(0, min(100, wrapper_score))
+    substitution_score = max(0, min(100, substitution_score))
+    billing_score = max(0, min(100, billing_score))
+    feature_score = max(0, min(100, feature_score))
+    speed_score = max(0, min(100, speed_score))
+
     return {
         "quality_score": max(0, min(100, quality_score)),
-        "wrapper_or_routing_suspicion": max(0, min(100, wrapper_score)),
-        "model_substitution_suspicion": max(0, min(100, substitution_score)),
-        "billing_overhead_suspicion": max(0, min(100, billing_score)),
-        "feature_gap_suspicion": max(0, min(100, feature_score)),
-        "overall_risk": max(0, min(100, round((wrapper_score * 0.3 + substitution_score * 0.3 + billing_score * 0.25 + feature_score * 0.15), 2))),
+        "wrapper_or_routing_suspicion": wrapper_score,
+        "model_substitution_suspicion": substitution_score,
+        "billing_overhead_suspicion": billing_score,
+        "feature_gap_suspicion": feature_score,
+        "speed_suspicion": speed_score,
+        "overall_risk": max(
+            0,
+            min(
+                100,
+                round(
+                    (
+                        wrapper_score * 0.25
+                        + substitution_score * 0.25
+                        + billing_score * 0.2
+                        + feature_score * 0.15
+                        + speed_score * 0.15
+                    ),
+                    2,
+                ),
+            ),
+        ),
     }
 
 
@@ -909,6 +1048,10 @@ def print_baseline_summary(data: dict[str, Any]) -> None:
     print(f"Suite: {data['suite']['version']} | cases={data['suite']['case_count']} | repeats={data['suite']['repeats']} | reasoning={data['suite']['reasoning_effort']}")
     print(f"Pass rate: {summary['passed']}/{summary['runs']} ({summary['pass_rate']})")
     print(f"Tokens: input={summary['tokens']['input']}, output={summary['tokens']['output']}, total={summary['tokens']['total']}")
+    speed = summary.get("speed", {})
+    latency = speed.get("latency_s", {})
+    output_tps = speed.get("output_tokens_per_s", {})
+    print(f"Speed: median_latency={latency.get('median')}s, p90_latency={latency.get('p90')}s, median_output_tokens_per_s={output_tps.get('median')}")
     if summary.get("estimated_cost", {}).get("available"):
         print(f"Estimated cost: ${summary['estimated_cost']['estimated_cost_usd']}")
 
@@ -916,8 +1059,8 @@ def print_baseline_summary(data: dict[str, Any]) -> None:
 def print_audit_summary(report: dict[str, Any]) -> None:
     summary = report["comparison"]["summary"]
     scores = summary["scores"]
-    print("Provider audit report")
-    print("=====================")
+    print("Codex Probe audit report")
+    print("========================")
     print(f"Baseline: {report['baseline']['provider']['label']} | {report['baseline']['provider']['base_url']} | model={report['baseline']['provider']['model']}")
     print(f"Candidate: {report['candidate']['provider']['label']} | {report['candidate']['provider']['base_url']} | model={report['candidate']['provider']['model']}")
     print(f"Suite: {report['candidate']['suite']['version']} | cases={report['candidate']['suite']['case_count']} | repeats={report['candidate']['suite']['repeats']} | reasoning={report['candidate']['suite']['reasoning_effort']}")
@@ -926,6 +1069,13 @@ def print_audit_summary(report: dict[str, Any]) -> None:
     ratios = summary["candidate_to_baseline_token_ratio"]
     print(f"Token ratio candidate/baseline: input={ratios['input']}, output={ratios['output']}, total={ratios['total']}")
     print(f"Estimated cost ratio: {summary['candidate_to_baseline_estimated_cost_ratio']}")
+    speed = summary.get("speed_comparison", {})
+    print(
+        "Speed candidate/baseline: "
+        f"median_latency_ratio={speed.get('median_latency_ratio')}, "
+        f"p90_latency_ratio={speed.get('p90_latency_ratio')}, "
+        f"output_tokens_per_s_ratio={speed.get('output_tokens_per_s_ratio')}"
+    )
     print()
     print("Scores:")
     for key, value in scores.items():
@@ -955,7 +1105,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
         )
     data = run_suite(provider, args.repeats, args.reasoning_effort, args.timeout, args.image_probe)
     data["meta"] = {
-        "artifact": "provider_probe_baseline",
+        "artifact": "codex_probe_baseline",
         "generated_at_unix": int(time.time()),
     }
     save_json(args.output, data, provider.api_key)
@@ -975,7 +1125,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
     candidate = run_suite(provider, args.repeats, args.reasoning_effort, args.timeout, args.image_probe)
     report = {
         "meta": {
-            "artifact": "provider_probe_audit",
+            "artifact": "codex_probe_audit",
             "generated_at_unix": int(time.time()),
             "notes": [
                 "This is a black-box heuristic audit, not proof of upstream account type.",
@@ -995,7 +1145,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Build baselines and audit OpenAI-compatible providers.")
+    parser = argparse.ArgumentParser(description="Build Codex baselines and audit OpenAI-compatible relay purity.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     b = sub.add_parser("baseline", help="Generate a trusted baseline.")
@@ -1004,9 +1154,9 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--api-key", default="")
     b.add_argument("--label", default="baseline")
     b.add_argument("--model", default=DEFAULT_MODEL)
-    b.add_argument("--repeats", type=int, default=2)
+    b.add_argument("--repeats", type=int, default=2, help="Repeat each hard prompt. Higher values improve quality and speed confidence.")
     b.add_argument("--reasoning-effort", default=DEFAULT_REASONING)
-    b.add_argument("--timeout", type=int, default=120)
+    b.add_argument("--timeout", type=int, default=120, help="Per-request timeout in seconds.")
     b.add_argument("--image-probe", action="store_true", help="Also test gpt-image-2. May consume image credits if enabled.")
     b.add_argument("--output", default="baselines/current-codex-gpt-5.5-xhigh.json")
     b.set_defaults(func=cmd_baseline)
@@ -1017,11 +1167,11 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--api-key", default="")
     a.add_argument("--label", default="candidate")
     a.add_argument("--model", default="")
-    a.add_argument("--repeats", type=int, default=2)
+    a.add_argument("--repeats", type=int, default=2, help="Repeat each hard prompt. Higher values improve quality and speed confidence.")
     a.add_argument("--reasoning-effort", default=DEFAULT_REASONING)
-    a.add_argument("--timeout", type=int, default=120)
+    a.add_argument("--timeout", type=int, default=120, help="Per-request timeout in seconds.")
     a.add_argument("--image-probe", action="store_true", help="Also test gpt-image-2. May consume image credits if enabled.")
-    a.add_argument("--output", default="reports/provider-audit.json")
+    a.add_argument("--output", default="reports/codex-probe-audit.json")
     a.set_defaults(func=cmd_audit)
 
     return parser

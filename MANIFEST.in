@@ -2,7 +2,6 @@ include README.md
 include README.zh-CN.md
 include LICENSE
 include model_substitution_hard_suite.md
-include PROVIDER_PROBE_README.md
 include .env.example
 recursive-include examples *.sh
 global-exclude __pycache__/*

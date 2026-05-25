@@ -3,14 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "provider-probe-audit"
+name = "codex-probe"
 version = "0.1.0"
-description = "Black-box audit CLI for OpenAI-compatible model providers and API gateways."
+description = "Black-box purity audit CLI for OpenAI-compatible model providers and API gateways."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "Provider Probe contributors" }
+  { name = "Codex Probe contributors" }
 ]
 keywords = [
   "openai",
@@ -18,7 +18,9 @@ keywords = [
   "api-gateway",
   "model-audit",
   "provider-audit",
-  "token-usage"
+  "token-usage",
+  "latency",
+  "relay-purity"
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -35,14 +37,15 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
+codex-probe = "provider_probe:main"
 provider-probe = "provider_probe:main"
 
 [project.urls]
-Homepage = "https://github.com/leiMizzou/provider-probe"
-Issues = "https://github.com/leiMizzou/provider-probe/issues"
+Homepage = "https://github.com/leiMizzou/codex-probe"
+Issues = "https://github.com/leiMizzou/codex-probe/issues"
 
 [tool.setuptools]
-py-modules = ["provider_probe"]
+py-modules = ["provider_probe", "codex_probe"]
 
 [tool.setuptools.exclude-package-data]
 "*" = [

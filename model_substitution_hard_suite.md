@@ -1,4 +1,4 @@
-# Model Substitution Hard Test Suite
+# Codex Probe Hard Test Suite
 
 Purpose: detect whether a provider that claims `gpt-5.5` / `gpt-5.4` is sometimes routing to weaker or differently wrapped models.
 

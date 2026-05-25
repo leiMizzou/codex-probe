@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python3 provider_probe.py baseline \
+python3 codex_probe.py baseline \
   --current-codex \
   --model gpt-5.5 \
   --repeats 2 \

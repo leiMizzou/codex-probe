@@ -1,4 +1,4 @@
-# Provider Probe
+# Codex Probe
 
 <p align="right">
   <a href="#中文说明">简体中文</a> |
@@ -7,9 +7,9 @@
 
 ## 中文说明
 
-Provider Probe 是一个用于黑盒评估 OpenAI-compatible 中转站、API 网关、模型代理的命令行工具。
+Codex Probe 是一个用于黑盒评估 OpenAI-compatible 中转站、API 网关、模型代理是否“纯净”的命令行工具。它可以把你当前 Codex App 使用的官方/可信 provider 作为 baseline，再测试第三方中转站的质量、token、功能和速度是否接近 baseline。
 
-它会先用你信任的 provider 建立一个 baseline，然后用同一套复杂题和功能探针去测试候选 provider，大致判断：
+它会先用你信任的 provider 建立一个 baseline，然后用同一套复杂题、功能探针和速度指标去测试候选 provider，大致判断：
 
 - 模型质量是否接近 baseline
 - 是否有隐藏 prompt / wrapper 导致 input token 被放大
@@ -17,22 +17,23 @@ Provider Probe 是一个用于黑盒评估 OpenAI-compatible 中转站、API 网
 - 是否疑似混入较弱模型
 - `gpt-image-2`、snapshot model、JSON schema 等能力是否缺失
 - token 使用量和估算成本是否异常
+- 延迟、p90 响应时间、输出 token/s 是否明显劣化
 
-它不能证明上游账号到底是 ChatGPT Free、Plus、Pro 还是 Team。API 行为和 ChatGPT 订阅不是同一个权限面；本工具输出的是黑盒证据和风险评分。
+它不能证明上游账号到底是 ChatGPT Free、Plus、Pro 还是 Team。API 行为和 ChatGPT 订阅不是同一个权限面；本工具输出的是黑盒证据和风险评分。本项目是非官方工具，不隶属于 OpenAI。
 
 ### 快速开始
 
 直接运行：
 
 ```bash
-python3 provider_probe.py --help
+python3 codex_probe.py --help
 ```
 
 也可以安装成本地 CLI：
 
 ```bash
 python3 -m pip install -e .
-provider-probe --help
+codex-probe --help
 ```
 
 ### 1. 生成可信 Baseline
@@ -40,7 +41,7 @@ provider-probe --help
 如果你信任当前 Codex 配置的 provider：
 
 ```bash
-python3 provider_probe.py baseline \
+python3 codex_probe.py baseline \
   --current-codex \
   --model gpt-5.5 \
   --repeats 2 \
@@ -57,7 +58,7 @@ python3 provider_probe.py baseline \
 export PROVIDER_BASE_URL="https://trusted.example.com/v1"
 export PROVIDER_API_KEY="your-api-key"
 
-python3 provider_probe.py baseline \
+python3 codex_probe.py baseline \
   --base-url "$PROVIDER_BASE_URL" \
   --api-key "$PROVIDER_API_KEY" \
   --label trusted \
@@ -73,7 +74,7 @@ python3 provider_probe.py baseline \
 export PROVIDER_BASE_URL="https://candidate.example.com/v1"
 export PROVIDER_API_KEY="your-api-key"
 
-python3 provider_probe.py audit \
+python3 codex_probe.py audit \
   --baseline baselines/current-codex-gpt-5.5-xhigh.json \
   --label candidate \
   --model gpt-5.5 \
@@ -92,6 +93,7 @@ python3 provider_probe.py audit \
 - `model_substitution_suspicion`: 是否疑似混入弱模型，重点看难题掉分和不同 token 档位的正确率差异。
 - `billing_overhead_suspicion`: token / 成本是否明显高于 baseline。
 - `feature_gap_suspicion`: `gpt-image-2`、snapshot model、JSON schema 等能力是否缺失。
+- `speed_suspicion`: median latency、p90 latency、输出 token/s 是否明显差于 baseline。
 - `overall_risk`: 综合风险评分。
 
 如果候选 provider 出现类似：
@@ -109,17 +111,18 @@ python3 provider_probe.py audit \
 
 ## English
 
-Black-box audit tooling for OpenAI-compatible model providers and API gateways.
+Black-box purity audit tooling for OpenAI-compatible model providers and API gateways.
 
-Provider Probe helps you compare a candidate API endpoint against a trusted baseline and answer practical questions:
+Codex Probe helps you compare a candidate API endpoint against a trusted baseline, commonly your current trusted Codex App provider, and answer practical questions:
 
 - Is the claimed model behaving close to the baseline on hard deterministic tasks?
 - Does the provider inject hidden prompt/wrapper tokens?
 - Is there evidence of mixed routing or weaker model substitution?
 - Are expected capabilities missing, such as `gpt-image-2` or snapshot model IDs?
 - How different are reported token usage and estimated cost?
+- Is the candidate materially slower in median latency, p90 latency, or output tokens per second?
 
-It is designed for testing third-party "OpenAI-compatible" gateways, proxy providers, and model resellers. It does **not** prove the upstream account type, and it cannot definitively prove Free / Plus / Pro / Team usage. It reports observable evidence and risk scores.
+It is designed for testing third-party "OpenAI-compatible" gateways, proxy providers, and model resellers. It does **not** prove the upstream account type, and it cannot definitively prove Free / Plus / Pro / Team usage. It reports observable evidence and risk scores. This is an unofficial tool and is not affiliated with OpenAI.
 
 ## What It Tests
 
@@ -150,22 +153,24 @@ Requires Python 3.10+. Python 3.11+ is recommended if you want `--current-codex`
 Run directly:
 
 ```bash
-python3 provider_probe.py --help
+python3 codex_probe.py --help
 ```
 
 Or install as a local CLI:
 
 ```bash
 python3 -m pip install -e .
-provider-probe --help
+codex-probe --help
 ```
+
+The old `provider-probe` command is still installed as a compatibility alias.
 
 ## 1. Build A Trusted Baseline
 
 If you use Codex locally and trust its configured provider:
 
 ```bash
-python3 provider_probe.py baseline \
+python3 codex_probe.py baseline \
   --current-codex \
   --model gpt-5.5 \
   --repeats 2 \
@@ -182,7 +187,7 @@ You can also build a baseline from explicit endpoint credentials:
 export PROVIDER_BASE_URL="https://trusted.example.com/v1"
 export PROVIDER_API_KEY="sk-..."
 
-python3 provider_probe.py baseline \
+python3 codex_probe.py baseline \
   --base-url "$PROVIDER_BASE_URL" \
   --api-key "$PROVIDER_API_KEY" \
   --label trusted \
@@ -198,7 +203,7 @@ python3 provider_probe.py baseline \
 export PROVIDER_BASE_URL="https://candidate.example.com/v1"
 export PROVIDER_API_KEY="sk-..."
 
-python3 provider_probe.py audit \
+python3 codex_probe.py audit \
   --baseline baselines/current-codex-gpt-5.5-xhigh.json \
   --label candidate \
   --model gpt-5.5 \
@@ -219,7 +224,8 @@ Reports include:
 - `model_substitution_suspicion`: risk of weaker/mixed model routing based on quality drops or one token tier failing more often.
 - `billing_overhead_suspicion`: candidate uses much more input/total token budget than baseline.
 - `feature_gap_suspicion`: missing or different features compared with baseline.
-- `overall_risk`: weighted summary of routing, substitution, billing, and feature issues.
+- `speed_suspicion`: candidate is materially slower than baseline by median latency, p90 latency, or output tokens per second.
+- `overall_risk`: weighted summary of routing, substitution, billing, feature, and speed issues.
 
 Example:
 
@@ -229,8 +235,15 @@ wrapper_or_routing_suspicion: 70/100
 model_substitution_suspicion: 0/100
 billing_overhead_suspicion: 100/100
 feature_gap_suspicion: 55/100
-overall_risk: 54.25/100
+speed_suspicion: 20/100
+overall_risk: 49.25/100
 ```
+
+## Reading Speed Results
+
+Every chat completion run records total request latency. Reports summarize median latency, p90 latency, median output tokens per second, and candidate/baseline ratios. Use `--current-codex` to build the baseline from the Codex App provider you already trust, then audit the relay against that file.
+
+Latency is noisy, so treat speed as supporting evidence. A relay that is much slower than the Codex baseline may be overloaded, routed through an extra wrapper, or using a different upstream path. A relay that is faster is not automatically suspicious; quality, feature, and token evidence still matter.
 
 ## Reading Token Clusters
 

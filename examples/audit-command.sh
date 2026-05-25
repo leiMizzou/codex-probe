@@ -5,7 +5,7 @@ set -euo pipefail
 : "${PROVIDER_BASE_URL:?Set PROVIDER_BASE_URL, e.g. https://candidate.example.com/v1}"
 : "${PROVIDER_API_KEY:?Set PROVIDER_API_KEY}"
 
-python3 provider_probe.py audit \
+python3 codex_probe.py audit \
   --baseline baselines/current-codex-gpt-5.5-xhigh.json \
   --label candidate \
   --model gpt-5.5 \
