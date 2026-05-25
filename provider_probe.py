@@ -494,10 +494,13 @@ def http(
     started = time.time()
     for attempt in range(retries + 1):
         result = _http_once(provider, method, path, body, timeout)
+        # Keep result["elapsed_s"] as the last attempt's true server response time so
+        # downstream speed stats reflect model latency, not retry/backoff overhead.
+        # Expose cumulative wall time separately for callers that want user-perceived latency.
         if result["ok"] or attempt == retries or not _is_retriable(result):
             result["attempts"] = attempt + 1
             result["retries_used"] = attempt
-            result["elapsed_s"] = round(time.time() - started, 3)
+            result["total_wall_s"] = round(time.time() - started, 3)
             return result
         if delay > 0:
             time.sleep(delay * (2 ** attempt))
@@ -521,6 +524,7 @@ def extract_chat(provider: Provider, resp: dict[str, Any]) -> dict[str, Any]:
         "ok": resp["ok"],
         "status": resp["status"],
         "elapsed_s": resp["elapsed_s"],
+        "total_wall_s": resp.get("total_wall_s", resp["elapsed_s"]),
         "attempts": resp.get("attempts", 1),
         "retries_used": resp.get("retries_used", 0),
         "headers": resp.get("headers", {}),
@@ -980,6 +984,7 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
         speed_comparison=speed_comparison,
         feature_diff=feature_diff,
         scores=scores,
+        model=str((candidate.get("provider") or {}).get("model") or ""),
     )
 
     return {
@@ -1346,6 +1351,7 @@ def assess_result(
     speed_comparison: dict[str, Any],
     feature_diff: dict[str, Any],
     scores: dict[str, Any],
+    model: str = "",
 ) -> dict[str, Any]:
     overall_risk = float(scores.get("overall_risk") or 0)
     level = risk_level(overall_risk)
@@ -1355,6 +1361,9 @@ def assess_result(
     billing = float(scores.get("billing_overhead_suspicion") or 0)
     feature = float(scores.get("feature_gap_suspicion") or 0)
     speed = float(scores.get("speed_suspicion") or 0)
+
+    model_label = model.strip() or "this model"
+    model_slug = re.sub(r"[^a-z0-9]+", "_", model.lower()).strip("_") if model else ""
 
     issues: list[str] = []
     if not quality_gate:
@@ -1371,7 +1380,7 @@ def assess_result(
         issues.append("material speed regression")
 
     if quality_gate and substitution < 35:
-        suitability = "usable_for_gpt_5_5_text"
+        suitability = f"usable_for_{model_slug}_text" if model_slug else "usable_for_text_workloads"
     elif candidate_pass_rate >= 0.9:
         suitability = "limited_use_with_manual_review"
     else:
@@ -1403,10 +1412,10 @@ def assess_result(
     ):
         strengths.append("no feature gaps versus the baseline")
 
-    recommended_use = []
-    avoid_use = []
-    if suitability == "usable_for_gpt_5_5_text":
-        recommended_use.append("gpt-5.5 text workloads similar to this hard suite")
+    recommended_use: list[str] = []
+    avoid_use: list[str] = []
+    if suitability.startswith("usable_for_"):
+        recommended_use.append(f"{model_label} text workloads similar to this hard suite")
     if feature >= 35:
         avoid_use.append("workflows requiring missing baseline features")
     if billing >= 50:

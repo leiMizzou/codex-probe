@@ -363,43 +363,49 @@ class TestCompareProfile(unittest.TestCase):
 
 
 class TestAssessment(unittest.TestCase):
-    def test_clean_text_candidate_is_usable(self):
-        result = pp.assess_result(
+    CLEAN_FEATURE_DIFF = {
+        "image_generation_gap": False,
+        "snapshot_gap": False,
+        "json_schema_gap": False,
+        "model_retrieve_gap": False,
+    }
+    CLEAN_SCORES = {
+        "overall_risk": 0,
+        "model_substitution_suspicion": 0,
+        "wrapper_or_routing_suspicion": 0,
+        "billing_overhead_suspicion": 0,
+        "feature_gap_suspicion": 0,
+        "speed_suspicion": 0,
+    }
+
+    def _assess(self, **overrides):
+        defaults = dict(
             baseline_pass_rate=1.0,
             candidate_pass_rate=1.0,
             quality_delta=0.0,
             input_ratio=1.0,
             total_ratio=1.0,
             speed_comparison={"median_latency_ratio": 1.0},
-            feature_diff={
-                "image_generation_gap": False,
-                "snapshot_gap": False,
-                "json_schema_gap": False,
-                "model_retrieve_gap": False,
-            },
-            scores={
-                "overall_risk": 0,
-                "model_substitution_suspicion": 0,
-                "wrapper_or_routing_suspicion": 0,
-                "billing_overhead_suspicion": 0,
-                "feature_gap_suspicion": 0,
-                "speed_suspicion": 0,
-            },
+            feature_diff=dict(self.CLEAN_FEATURE_DIFF),
+            scores=dict(self.CLEAN_SCORES),
+            model="gpt-5.5",
         )
+        defaults.update(overrides)
+        return pp.assess_result(**defaults)
+
+    def test_clean_text_candidate_is_usable(self):
+        result = self._assess()
         self.assertEqual(result["verdict"], "passes_text_quality_with_caveats")
         self.assertEqual(result["risk_level"], "low")
         self.assertTrue(result["quality_gate_passed"])
         self.assertEqual(result["suitability"], "usable_for_gpt_5_5_text")
+        self.assertIn("gpt-5.5 text workloads similar to this hard suite", result["recommended_use"])
         self.assertIn("no feature gaps versus the baseline", result["strengths"])
 
     def test_quality_pass_with_provider_differences_is_called_out(self):
-        result = pp.assess_result(
-            baseline_pass_rate=1.0,
-            candidate_pass_rate=1.0,
-            quality_delta=0.0,
+        result = self._assess(
             input_ratio=3.5,
             total_ratio=2.0,
-            speed_comparison={"median_latency_ratio": 1.0},
             feature_diff={
                 "image_generation_gap": True,
                 "snapshot_gap": True,
@@ -419,7 +425,111 @@ class TestAssessment(unittest.TestCase):
         self.assertEqual(result["risk_level"], "high")
         self.assertIn("stable wrapper/routing token overhead", result["primary_issues"])
         self.assertIn("material token/cost overhead", result["primary_issues"])
+        self.assertIn("missing or different features vs baseline", result["primary_issues"])
+        self.assertIn("workflows requiring missing baseline features", result["avoid_use"])
         self.assertNotIn("no feature gaps versus the baseline", result["strengths"])
+
+    def test_substitution_signal_triggers_possible_issue_verdict(self):
+        result = self._assess(
+            baseline_pass_rate=1.0,
+            candidate_pass_rate=0.92,  # passes 0.9 gate but not the 0.97 quality_gate
+            quality_delta=-0.08,
+            scores={**self.CLEAN_SCORES, "overall_risk": 30, "model_substitution_suspicion": 50},
+        )
+        self.assertEqual(result["verdict"], "possible_substitution_or_quality_issue")
+        self.assertEqual(result["suitability"], "limited_use_with_manual_review")
+        self.assertFalse(result["quality_gate_passed"])
+        self.assertIn("possible model substitution", result["primary_issues"])
+
+    def test_severe_quality_drop_fails_gate(self):
+        result = self._assess(
+            candidate_pass_rate=0.5,
+            quality_delta=-0.5,
+            scores={**self.CLEAN_SCORES, "overall_risk": 30, "model_substitution_suspicion": 0},
+        )
+        self.assertEqual(result["verdict"], "fails_quality_gate")
+        self.assertEqual(result["suitability"], "not_recommended")
+        self.assertIn("high-stakes workloads without a stronger trusted baseline and more repeats", result["avoid_use"])
+
+    def test_speed_regression_listed_in_avoid_use(self):
+        result = self._assess(scores={**self.CLEAN_SCORES, "speed_suspicion": 60, "overall_risk": 25})
+        self.assertIn("material speed regression", result["primary_issues"])
+        self.assertIn("latency-sensitive production paths", result["avoid_use"])
+
+    def test_model_slug_is_sanitized(self):
+        result = self._assess(model="GPT-5.6/Codex-Spark!")
+        # Lowercased, runs of non-alnum collapse to single underscore, strip edges
+        self.assertEqual(result["suitability"], "usable_for_gpt_5_6_codex_spark_text")
+        self.assertIn("GPT-5.6/Codex-Spark! text workloads similar to this hard suite", result["recommended_use"])
+
+    def test_empty_model_falls_back_to_generic_label(self):
+        result = self._assess(model="")
+        self.assertEqual(result["suitability"], "usable_for_text_workloads")
+        self.assertIn("this model text workloads similar to this hard suite", result["recommended_use"])
+
+    def test_plain_language_picks_up_issues(self):
+        result = self._assess(
+            input_ratio=3.5,
+            scores={**self.CLEAN_SCORES, "overall_risk": 55, "billing_overhead_suspicion": 70},
+        )
+        # provider_differs branch should mention the risk level and at least one issue
+        self.assertIn("high", result["plain_language"])
+        self.assertIn("material token/cost overhead", result["plain_language"])
+
+
+class TestRiskLevel(unittest.TestCase):
+    def test_boundaries(self):
+        self.assertEqual(pp.risk_level(0), "low")
+        self.assertEqual(pp.risk_level(19.99), "low")
+        self.assertEqual(pp.risk_level(20), "moderate")
+        self.assertEqual(pp.risk_level(44.99), "moderate")
+        self.assertEqual(pp.risk_level(45), "high")
+        self.assertEqual(pp.risk_level(69.99), "high")
+        self.assertEqual(pp.risk_level(70), "critical")
+        self.assertEqual(pp.risk_level(100), "critical")
+
+
+class TestProbeSchemaValidator(unittest.TestCase):
+    def test_well_formed(self):
+        ok, reason = pp._validate_probe_schema_text('{"verdict":"pass","score":10}')
+        self.assertTrue(ok)
+        self.assertIsNone(reason)
+
+    def test_invalid_json(self):
+        ok, reason = pp._validate_probe_schema_text("not json")
+        self.assertFalse(ok)
+        self.assertTrue(reason.startswith("invalid_json:"))
+
+    def test_not_object(self):
+        ok, reason = pp._validate_probe_schema_text("[1,2,3]")
+        self.assertFalse(ok)
+        self.assertEqual(reason, "not_object")
+
+    def test_unexpected_keys(self):
+        ok, reason = pp._validate_probe_schema_text('{"verdict":"pass","score":5,"extra":true}')
+        self.assertFalse(ok)
+        self.assertEqual(reason, "unexpected_keys")
+
+    def test_verdict_out_of_enum(self):
+        ok, reason = pp._validate_probe_schema_text('{"verdict":"insufficient","score":5}')
+        self.assertFalse(ok)
+        self.assertEqual(reason, "verdict_out_of_enum")
+
+    def test_score_not_integer(self):
+        ok, reason = pp._validate_probe_schema_text('{"verdict":"pass","score":3.5}')
+        self.assertFalse(ok)
+        self.assertEqual(reason, "score_not_integer")
+
+    def test_score_is_bool_rejected(self):
+        # bool is a subclass of int — make sure we explicitly reject it
+        ok, reason = pp._validate_probe_schema_text('{"verdict":"pass","score":true}')
+        self.assertFalse(ok)
+        self.assertEqual(reason, "score_not_integer")
+
+    def test_score_out_of_range(self):
+        ok, reason = pp._validate_probe_schema_text('{"verdict":"pass","score":11}')
+        self.assertFalse(ok)
+        self.assertEqual(reason, "score_out_of_range")
 
 
 if __name__ == "__main__":

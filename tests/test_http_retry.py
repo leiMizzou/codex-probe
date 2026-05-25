@@ -110,6 +110,19 @@ class HttpRetryTests(unittest.TestCase):
         self.assertEqual(result["attempts"], 1)
         self.assertEqual(len(self.calls), 1)
 
+    def test_elapsed_s_reflects_last_attempt_not_cumulative(self):
+        # Regression: http() must NOT overwrite elapsed_s with cumulative wall time —
+        # speed stats downstream would otherwise inflate when retries fire.
+        # _http_once sets elapsed_s; here both attempts return immediately so elapsed_s
+        # stays tiny while total_wall_s carries any cumulative wait.
+        self.actions = [self._httperror(503, b"down"), _FakeResp(200, b'{"ok": true}')]
+        result = pp.http(self.provider, "GET", "/foo", runtime=self.runtime)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["retries_used"], 1)
+        # total_wall_s exists and is >= elapsed_s (it covers both attempts + any backoff)
+        self.assertIn("total_wall_s", result)
+        self.assertGreaterEqual(result["total_wall_s"], result["elapsed_s"])
+
     def test_post_can_retry_when_explicitly_enabled(self):
         runtime = pp.RuntimeOptions(
             pp.DEFAULT_PRICES_PER_M.copy(),
