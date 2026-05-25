@@ -6,10 +6,11 @@ set -euo pipefail
 : "${PROVIDER_API_KEY:?Set PROVIDER_API_KEY}"
 
 python3 codex_probe.py audit \
-  --baseline baselines/current-codex-gpt-5.5-xhigh.json \
+  --baseline-id official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh \
+  --base-url "$PROVIDER_BASE_URL" \
   --label candidate \
   --model gpt-5.5 \
   --repeats 2 \
   --reasoning-effort xhigh \
   --image-probe \
-  --output reports/candidate-gpt-5.5-xhigh-audit.json
+  --output reports/candidate-vs-official-sub2api-gpt-5.5-xhigh.json

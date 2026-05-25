@@ -14,6 +14,8 @@ Secrets are redacted from output files. Prefer passing API keys through env vars
 from __future__ import annotations
 
 import argparse
+import datetime
+import importlib.resources as resources
 import json
 import math
 import os
@@ -42,6 +44,12 @@ SNAPSHOT_PROBES = {
 DEFAULT_PRICES_PER_M = {
     "gpt-5.4": {"input": 2.5, "output": 15.0},
     "gpt-5.5": {"input": 5.0, "output": 30.0},
+}
+BUILTIN_BASELINES = {
+    "official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh": {
+        "filename": "official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh.json",
+        "description": "GPT-5.5 xhigh baseline from a self-hosted sub2api relay on a 16c16g VPS.",
+    },
 }
 
 
@@ -1132,6 +1140,34 @@ def load_json(path: str) -> dict[str, Any]:
         return json.load(f)
 
 
+def load_builtin_baseline(baseline_id: str) -> dict[str, Any]:
+    entry = BUILTIN_BASELINES.get(baseline_id)
+    if not entry:
+        known = ", ".join(sorted(BUILTIN_BASELINES))
+        raise SystemExit(f"Unknown built-in baseline id: {baseline_id}. Known ids: {known}")
+    path = resources.files("codex_probe_data").joinpath("baselines", entry["filename"])
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    data.setdefault("meta", {})["builtin_baseline_id"] = baseline_id
+    return data
+
+
+def load_baseline_arg(args: argparse.Namespace) -> dict[str, Any]:
+    if getattr(args, "baseline_id", ""):
+        return load_builtin_baseline(args.baseline_id)
+    if getattr(args, "baseline", ""):
+        return load_json(args.baseline)
+    known = ", ".join(sorted(BUILTIN_BASELINES))
+    raise SystemExit(f"Audit requires --baseline PATH or --baseline-id ID. Built-in ids: {known}")
+
+
+def format_unix_time(value: Any) -> str:
+    try:
+        return datetime.datetime.fromtimestamp(int(value), datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    except Exception:
+        return "unknown"
+
+
 def print_baseline_summary(data: dict[str, Any]) -> None:
     summary = data["summary"]
     print("Baseline generated")
@@ -1218,8 +1254,33 @@ def cmd_baseline(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_list_baselines(args: argparse.Namespace) -> int:
+    print("Built-in baselines")
+    print("==================")
+    for baseline_id, entry in sorted(BUILTIN_BASELINES.items()):
+        data = load_builtin_baseline(baseline_id)
+        summary = data.get("summary", {})
+        speed = summary.get("speed", {})
+        latency = speed.get("latency_s", {})
+        output_tps = speed.get("output_tokens_per_s", {})
+        meta = data.get("meta", {})
+        provider = data.get("provider", {})
+        suite = data.get("suite", {})
+        print(f"- id: {baseline_id}")
+        print(f"  description: {entry['description']}")
+        print(f"  provider: {provider.get('label')} | {provider.get('base_url')} | model={provider.get('model')}")
+        print(f"  profile: {meta.get('profile')}")
+        print(f"  generated_at: {format_unix_time(meta.get('generated_at_unix'))}")
+        print(f"  suite: {suite.get('version')} | repeats={suite.get('repeats')} | reasoning={suite.get('reasoning_effort')}")
+        print(f"  pass_rate: {summary.get('passed')}/{summary.get('runs')} ({summary.get('pass_rate')})")
+        tokens = summary.get("tokens", {})
+        print(f"  tokens: input={tokens.get('input')}, output={tokens.get('output')}, total={tokens.get('total')}")
+        print(f"  speed: median_latency={latency.get('median')}s, p90_latency={latency.get('p90')}s, median_output_tokens_per_s={output_tps.get('median')}")
+    return 0
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
-    baseline = load_json(args.baseline)
+    baseline = load_baseline_arg(args)
     provider = explicit_provider(
         args.label,
         args.base_url or os.environ.get("PROVIDER_BASE_URL", ""),
@@ -1266,8 +1327,13 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--output", default="baselines/current-codex-gpt-5.5-xhigh.json")
     b.set_defaults(func=cmd_baseline)
 
+    lb = sub.add_parser("list-baselines", help="List packaged baseline IDs that can be used with audit --baseline-id.")
+    lb.set_defaults(func=cmd_list_baselines)
+
     a = sub.add_parser("audit", help="Audit a candidate against a baseline.")
-    a.add_argument("--baseline", required=True)
+    baseline_group = a.add_mutually_exclusive_group(required=True)
+    baseline_group.add_argument("--baseline", default="", help="Path to a baseline JSON file.")
+    baseline_group.add_argument("--baseline-id", default="", help="Built-in baseline id. Run list-baselines to see available IDs.")
     a.add_argument("--base-url", default="")
     a.add_argument("--api-key", default="")
     a.add_argument("--label", default="candidate")
@@ -1285,7 +1351,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+    if getattr(args, "output", ""):
+        os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     return args.func(args)
 
 

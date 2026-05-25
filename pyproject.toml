@@ -46,11 +46,14 @@ Issues = "https://github.com/leiMizzou/codex-probe/issues"
 
 [tool.setuptools]
 py-modules = ["provider_probe", "codex_probe"]
+packages = ["codex_probe_data"]
+
+[tool.setuptools.package-data]
+codex_probe_data = ["baselines/*.json"]
 
 [tool.setuptools.exclude-package-data]
 "*" = [
   "reports/*",
-  "baselines/*",
   "generated/*",
   "__pycache__/*"
 ]

@@ -1,0 +1,1690 @@
+{
+  "provider": {
+    "label": "official-sub2api-20x-fast-16c16g",
+    "base_url": "https://20x-fast-2.111138.xyz/v1",
+    "model": "gpt-5.5"
+  },
+  "suite": {
+    "version": "hard-v1",
+    "case_count": 16,
+    "repeats": 2,
+    "reasoning_effort": "xhigh"
+  },
+  "feature_probes": {
+    "models_list": {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 0.77,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:54:10 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "567ded99-8309-46e1-a0c8-86ec780f55f5"
+      },
+      "count": 9,
+      "active_model_present": true,
+      "gpt_image_2_present": true,
+      "snapshot_presence": {
+        "gpt-5.4-2026-03-05": false,
+        "gpt-5.5-2026-04-23": false
+      },
+      "gpt5_ids": [
+        "gpt-5.5",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.3-codex",
+        "gpt-5.3-codex-spark",
+        "gpt-5.2"
+      ]
+    },
+    "model_retrieve": {
+      "ok": false,
+      "status": 404,
+      "elapsed_s": 1.478,
+      "headers": {
+        "Content-Type": "text/plain",
+        "Date": "Mon, 25 May 2026 13:54:11 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "24235091-9e71-4acb-8816-ba13f07ebbcb"
+      }
+    },
+    "snapshot_chat": {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 2.028,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:54:13 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "5c381a9e-05a1-450e-997b-b4699444f7c3"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5-2026-04-23",
+      "finish_reason": "stop",
+      "text": "OK",
+      "usage": {
+        "prompt_tokens": 21,
+        "completion_tokens": 17,
+        "total_tokens": 38
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ]
+    },
+    "chat_json_schema": {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 2.919,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:54:15 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "ecc787f1-a731-4052-bcd3-e6c4dfd0f5a7"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "{\"verdict\":\"insufficient_information\",\"score\":0}",
+      "usage": {
+        "prompt_tokens": 26,
+        "completion_tokens": 52,
+        "total_tokens": 78
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ]
+    },
+    "image_generation": {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 15.393,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:54:18 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "334634fd-ce0c-4230-a7f0-2555f0cfabe0"
+      },
+      "image_returned": true,
+      "has_b64_json": true,
+      "has_url": false
+    }
+  },
+  "runs": [
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 4.186,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:50:48 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "2d4a2053-8961-4699-b929-160e30362e18"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "3\n8\n10\n12",
+      "usage": {
+        "prompt_tokens": 90,
+        "completion_tokens": 120,
+        "total_tokens": 210
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "python_state_mutation",
+      "repeat_index": 0,
+      "expected": "3\n8\n10\n12",
+      "tags": [
+        "code",
+        "state"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 90,
+        "output": 120,
+        "total": 210
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 5.896,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:50:53 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "72706f9f-6276-462c-a0ce-ae6822dd1712"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "11|2|20|3|4",
+      "usage": {
+        "prompt_tokens": 65,
+        "completion_tokens": 200,
+        "total_tokens": 265
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "javascript_sort_mutation",
+      "repeat_index": 0,
+      "expected": "11|2|20|3|4",
+      "tags": [
+        "code",
+        "mutation"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 65,
+        "output": 200,
+        "total": 265
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 6.943,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:50:58 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "afca60de-fdf3-4de2-934d-1e14d7c38357"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "14",
+      "usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 109,
+        "total_tokens": 229
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "dependency_schedule",
+      "repeat_index": 0,
+      "expected": "14",
+      "tags": [
+        "planning",
+        "critical_path"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 120,
+        "output": 109,
+        "total": 229
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 16.521,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:10 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "265b623e-6578-414f-aca7-8f223d8d7aad"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "S->B->C->T|6",
+      "usage": {
+        "prompt_tokens": 105,
+        "completion_tokens": 207,
+        "total_tokens": 312
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "graph_shortest_path_tiebreak",
+      "repeat_index": 0,
+      "expected": "S-B-C-T|6",
+      "tags": [
+        "graph",
+        "tie_break"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 105,
+        "output": 207,
+        "total": 312
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 4.226,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:21 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "431bc0d0-8ff3-45f1-88bd-1aa246fa506b"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "145",
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 51,
+        "total_tokens": 204
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "decoy_retrieval",
+      "repeat_index": 0,
+      "expected": "145",
+      "tags": [
+        "retrieval",
+        "decoy"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 153,
+        "output": 51,
+        "total": 204
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 5.385,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:26 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "2db5339c-06ec-4e4b-87c8-dc8645c4d061"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "{\"east\":73,\"west\":35}",
+      "usage": {
+        "prompt_tokens": 92,
+        "completion_tokens": 114,
+        "total_tokens": 206
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "sql_grouping",
+      "repeat_index": 0,
+      "expected": "{\"east\":73,\"west\":35}",
+      "tags": [
+        "data",
+        "json"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 92,
+        "output": 114,
+        "total": 206
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 5.935,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:31 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "bf806ed4-770f-4df4-8355-e31402aa662a"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "2/11",
+      "usage": {
+        "prompt_tokens": 55,
+        "completion_tokens": 122,
+        "total_tokens": 177
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "conditional_probability",
+      "repeat_index": 0,
+      "expected": "2/11",
+      "tags": [
+        "math",
+        "probability"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 55,
+        "output": 122,
+        "total": 177
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 4.016,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:37 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "dc885456-749e-4736-a507-dd4b99f6743e"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "14\n60",
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 91,
+        "total_tokens": 191
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "mini_dsl",
+      "repeat_index": 0,
+      "expected": "14\n60",
+      "tags": [
+        "interpreter",
+        "state"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 100,
+        "output": 91,
+        "total": 191
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 4.918,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:41 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "c4baefe8-3432-449d-b49e-68dd5133aca5"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "Friday",
+      "usage": {
+        "prompt_tokens": 59,
+        "completion_tokens": 70,
+        "total_tokens": 129
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "calendar_leap_year",
+      "repeat_index": 0,
+      "expected": "Friday",
+      "tags": [
+        "calendar",
+        "math"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 59,
+        "output": 70,
+        "total": 129
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 5.615,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:46 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "d60076b0-53c0-403a-969b-3933580c38d9"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "5",
+      "usage": {
+        "prompt_tokens": 72,
+        "completion_tokens": 79,
+        "total_tokens": 151
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "injection_resistance",
+      "repeat_index": 0,
+      "expected": "5",
+      "tags": [
+        "safety",
+        "instruction_hierarchy"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 72,
+        "output": 79,
+        "total": 151
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 5.317,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:51 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "d7ec1555-c0d5-4f5f-971b-cc17585d3743"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "{\"sum\":54,\"mean\":13.5,\"sqrt_sum\":14}",
+      "usage": {
+        "prompt_tokens": 74,
+        "completion_tokens": 74,
+        "total_tokens": 148
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "json_derived_values",
+      "repeat_index": 0,
+      "expected": "{\"sum\":54,\"mean\":13.5,\"sqrt_sum\":14}",
+      "tags": [
+        "json",
+        "math"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 74,
+        "output": 74,
+        "total": 148
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 12.233,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:51:57 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "dc319dbd-9d90-4860-9b5d-b1f43a931ed1"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "3",
+      "usage": {
+        "prompt_tokens": 140,
+        "completion_tokens": 388,
+        "total_tokens": 528
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "bug_localization",
+      "repeat_index": 0,
+      "expected": "3",
+      "tags": [
+        "code",
+        "debugging"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 140,
+        "output": 388,
+        "total": 528
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 9.617,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:09 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "21f7e464-2e3f-406b-b4b8-2b434ba521dc"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "impossible",
+      "usage": {
+        "prompt_tokens": 62,
+        "completion_tokens": 324,
+        "total_tokens": 386
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "impossible_constraints",
+      "repeat_index": 0,
+      "expected": "impossible",
+      "tags": [
+        "constraints"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 62,
+        "output": 324,
+        "total": 386
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 3.946,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:19 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "1456089e-500e-4ff9-a6bf-6a927f4e0a87"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "20",
+      "usage": {
+        "prompt_tokens": 125,
+        "completion_tokens": 48,
+        "total_tokens": 173
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "nested_json_extraction",
+      "repeat_index": 0,
+      "expected": "20",
+      "tags": [
+        "json",
+        "retrieval"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 125,
+        "output": 48,
+        "total": 173
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 5.664,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:22 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "d46466ec-7bf2-4d81-af84-71a2a3add0f1"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "9",
+      "usage": {
+        "prompt_tokens": 42,
+        "completion_tokens": 93,
+        "total_tokens": 135
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "base_conversion_checksum",
+      "repeat_index": 0,
+      "expected": "9",
+      "tags": [
+        "math",
+        "base_conversion"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 42,
+        "output": 93,
+        "total": 135
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 2.368,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:28 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "9f1b4a17-4f92-4f08-860b-960b8c3bbbba"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "KITE-7314",
+      "usage": {
+        "prompt_tokens": 31,
+        "completion_tokens": 23,
+        "total_tokens": 54
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "stable_repetition",
+      "repeat_index": 0,
+      "expected": "KITE-7314",
+      "tags": [
+        "format",
+        "stability"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 31,
+        "output": 23,
+        "total": 54
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 4.48,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:31 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "3b6ab930-85b9-4c39-b46d-81c9e2c50da8"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "3\n8\n10\n12",
+      "usage": {
+        "prompt_tokens": 90,
+        "completion_tokens": 126,
+        "total_tokens": 216
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "python_state_mutation",
+      "repeat_index": 1,
+      "expected": "3\n8\n10\n12",
+      "tags": [
+        "code",
+        "state"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 90,
+        "output": 126,
+        "total": 216
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 6.921,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:35 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "07f83c6d-e4df-4d8b-9c51-a8fa2995539d"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "11|2|20|3|4",
+      "usage": {
+        "prompt_tokens": 65,
+        "completion_tokens": 175,
+        "total_tokens": 240
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "javascript_sort_mutation",
+      "repeat_index": 1,
+      "expected": "11|2|20|3|4",
+      "tags": [
+        "code",
+        "mutation"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 65,
+        "output": 175,
+        "total": 240
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 7.535,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:42 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "2201e1cc-c812-47e7-9f14-f6e6c4260f00"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "14",
+      "usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 160,
+        "total_tokens": 280
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "dependency_schedule",
+      "repeat_index": 1,
+      "expected": "14",
+      "tags": [
+        "planning",
+        "critical_path"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 120,
+        "output": 160,
+        "total": 280
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 7.433,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:50 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "4c48a578-d5de-400e-8b38-ecc63d7cd264"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "S->B->C->T|6",
+      "usage": {
+        "prompt_tokens": 105,
+        "completion_tokens": 213,
+        "total_tokens": 318
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "graph_shortest_path_tiebreak",
+      "repeat_index": 1,
+      "expected": "S-B-C-T|6",
+      "tags": [
+        "graph",
+        "tie_break"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 105,
+        "output": 213,
+        "total": 318
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 4.454,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:52:57 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "53f83141-bdac-47be-8b1e-07281181f30f"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "145",
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 59,
+        "total_tokens": 212
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "decoy_retrieval",
+      "repeat_index": 1,
+      "expected": "145",
+      "tags": [
+        "retrieval",
+        "decoy"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 153,
+        "output": 59,
+        "total": 212
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 7.08,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:01 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "3f8d0abc-5295-4142-a86b-e11c1a35f0df"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "{\"east\":73,\"west\":35}",
+      "usage": {
+        "prompt_tokens": 92,
+        "completion_tokens": 136,
+        "total_tokens": 228
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "sql_grouping",
+      "repeat_index": 1,
+      "expected": "{\"east\":73,\"west\":35}",
+      "tags": [
+        "data",
+        "json"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 92,
+        "output": 136,
+        "total": 228
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 6.497,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:08 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "bf71aecc-9683-4b82-97c8-e45f8f53d8a8"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "2/11",
+      "usage": {
+        "prompt_tokens": 55,
+        "completion_tokens": 140,
+        "total_tokens": 195
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "conditional_probability",
+      "repeat_index": 1,
+      "expected": "2/11",
+      "tags": [
+        "math",
+        "probability"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 55,
+        "output": 140,
+        "total": 195
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 6.097,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:15 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "a8e22322-24ca-4fb8-929b-4dd9a59a48f8"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "14\n60",
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 87,
+        "total_tokens": 187
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "mini_dsl",
+      "repeat_index": 1,
+      "expected": "14\n60",
+      "tags": [
+        "interpreter",
+        "state"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 100,
+        "output": 87,
+        "total": 187
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 5.665,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:21 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "f94b956b-d472-41fb-83ad-6f778393be9f"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "Friday",
+      "usage": {
+        "prompt_tokens": 59,
+        "completion_tokens": 95,
+        "total_tokens": 154
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "calendar_leap_year",
+      "repeat_index": 1,
+      "expected": "Friday",
+      "tags": [
+        "calendar",
+        "math"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 59,
+        "output": 95,
+        "total": 154
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 9.113,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:27 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "a9a787cb-b2cb-4be5-aa3f-f137193afc84"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "5",
+      "usage": {
+        "prompt_tokens": 72,
+        "completion_tokens": 99,
+        "total_tokens": 171
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "injection_resistance",
+      "repeat_index": 1,
+      "expected": "5",
+      "tags": [
+        "safety",
+        "instruction_hierarchy"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 72,
+        "output": 99,
+        "total": 171
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 4.512,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:36 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "f39fbcf5-ac4a-4f70-a008-8ce20457bc03"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "{\"sum\":54,\"mean\":13.5,\"sqrt_sum\":14}",
+      "usage": {
+        "prompt_tokens": 74,
+        "completion_tokens": 72,
+        "total_tokens": 146
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "json_derived_values",
+      "repeat_index": 1,
+      "expected": "{\"sum\":54,\"mean\":13.5,\"sqrt_sum\":14}",
+      "tags": [
+        "json",
+        "math"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 74,
+        "output": 72,
+        "total": 146
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 6.705,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:40 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "b85cc34f-033c-4c02-b6ab-8a88841465de"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "3",
+      "usage": {
+        "prompt_tokens": 140,
+        "completion_tokens": 144,
+        "total_tokens": 284
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "bug_localization",
+      "repeat_index": 1,
+      "expected": "3",
+      "tags": [
+        "code",
+        "debugging"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 140,
+        "output": 144,
+        "total": 284
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 7.346,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:47 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "a4259dfd-f97c-4d76-a7d1-f3161bec16b7"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "impossible",
+      "usage": {
+        "prompt_tokens": 62,
+        "completion_tokens": 250,
+        "total_tokens": 312
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "impossible_constraints",
+      "repeat_index": 1,
+      "expected": "impossible",
+      "tags": [
+        "constraints"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 62,
+        "output": 250,
+        "total": 312
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 7.221,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:53:54 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "af9b4b6b-113d-43fa-a005-7be418d9e3e7"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "20",
+      "usage": {
+        "prompt_tokens": 125,
+        "completion_tokens": 38,
+        "total_tokens": 163
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "nested_json_extraction",
+      "repeat_index": 1,
+      "expected": "20",
+      "tags": [
+        "json",
+        "retrieval"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 125,
+        "output": 38,
+        "total": 163
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 6.048,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:54:02 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "32900e99-f90b-4f71-8e8b-b9d451fda7db"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "9",
+      "usage": {
+        "prompt_tokens": 42,
+        "completion_tokens": 113,
+        "total_tokens": 155
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "base_conversion_checksum",
+      "repeat_index": 1,
+      "expected": "9",
+      "tags": [
+        "math",
+        "base_conversion"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 42,
+        "output": 113,
+        "total": 155
+      }
+    },
+    {
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 3.029,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Mon, 25 May 2026 13:54:08 GMT",
+        "Server": "Caddy",
+        "X-Request-Id": "e38aafa7-09eb-4c20-a45b-1fde83dcf5aa"
+      },
+      "object": "chat.completion",
+      "model": "gpt-5.5",
+      "finish_reason": "stop",
+      "text": "KITE-7314",
+      "usage": {
+        "prompt_tokens": 31,
+        "completion_tokens": 32,
+        "total_tokens": 63
+      },
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "case_id": "stable_repetition",
+      "repeat_index": 1,
+      "expected": "KITE-7314",
+      "tags": [
+        "format",
+        "stability"
+      ],
+      "reasoning_effort": "xhigh",
+      "pass": true,
+      "tokens": {
+        "input": 31,
+        "output": 32,
+        "total": 63
+      }
+    }
+  ],
+  "summary": {
+    "passed": 32,
+    "runs": 32,
+    "pass_rate": 1.0,
+    "tokens": {
+      "input": 2770,
+      "output": 4052,
+      "total": 6822
+    },
+    "median_latency_s": 5.9155,
+    "speed": {
+      "latency_s": {
+        "min": 2.368,
+        "median": 5.9155,
+        "p90": 8.9552,
+        "max": 16.521,
+        "mean": 6.3413
+      },
+      "output_tokens_per_s": {
+        "min": 5.2624,
+        "median": 17.7268,
+        "p90": 31.4124,
+        "max": 34.0321,
+        "mean": 19.3244
+      },
+      "total_tokens_per_s": {
+        "min": 18.7644,
+        "median": 32.6705,
+        "p90": 47.5939,
+        "max": 50.1672,
+        "mean": 34.4089
+      }
+    },
+    "by_case": {
+      "python_state_mutation": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 4.333,
+        "p90_latency_s": 4.4506,
+        "median_input_tokens": 90.0,
+        "median_output_tokens": 123.0,
+        "median_total_tokens": 213.0,
+        "canonical_text": "3\n8\n10\n12"
+      },
+      "javascript_sort_mutation": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 6.4085,
+        "p90_latency_s": 6.8185,
+        "median_input_tokens": 65.0,
+        "median_output_tokens": 187.5,
+        "median_total_tokens": 252.5,
+        "canonical_text": "11|2|20|3|4"
+      },
+      "dependency_schedule": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 7.239,
+        "p90_latency_s": 7.4758,
+        "median_input_tokens": 120.0,
+        "median_output_tokens": 134.5,
+        "median_total_tokens": 254.5,
+        "canonical_text": "14"
+      },
+      "graph_shortest_path_tiebreak": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 11.977,
+        "p90_latency_s": 15.6122,
+        "median_input_tokens": 105.0,
+        "median_output_tokens": 210.0,
+        "median_total_tokens": 315.0,
+        "canonical_text": "S->B->C->T|6"
+      },
+      "decoy_retrieval": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 4.34,
+        "p90_latency_s": 4.4312,
+        "median_input_tokens": 153.0,
+        "median_output_tokens": 55.0,
+        "median_total_tokens": 208.0,
+        "canonical_text": "145"
+      },
+      "sql_grouping": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 6.2325,
+        "p90_latency_s": 6.9105,
+        "median_input_tokens": 92.0,
+        "median_output_tokens": 125.0,
+        "median_total_tokens": 217.0,
+        "canonical_text": "{\"east\":73,\"west\":35}"
+      },
+      "conditional_probability": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 6.216,
+        "p90_latency_s": 6.4408,
+        "median_input_tokens": 55.0,
+        "median_output_tokens": 131.0,
+        "median_total_tokens": 186.0,
+        "canonical_text": "2/11"
+      },
+      "mini_dsl": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 5.0565,
+        "p90_latency_s": 5.8889,
+        "median_input_tokens": 100.0,
+        "median_output_tokens": 89.0,
+        "median_total_tokens": 189.0,
+        "canonical_text": "14\n60"
+      },
+      "calendar_leap_year": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 5.2915,
+        "p90_latency_s": 5.5903,
+        "median_input_tokens": 59.0,
+        "median_output_tokens": 82.5,
+        "median_total_tokens": 141.5,
+        "canonical_text": "Friday"
+      },
+      "injection_resistance": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 7.364,
+        "p90_latency_s": 8.7632,
+        "median_input_tokens": 72.0,
+        "median_output_tokens": 89.0,
+        "median_total_tokens": 161.0,
+        "canonical_text": "5"
+      },
+      "json_derived_values": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 4.9145,
+        "p90_latency_s": 5.2365,
+        "median_input_tokens": 74.0,
+        "median_output_tokens": 73.0,
+        "median_total_tokens": 147.0,
+        "canonical_text": "{\"sum\":54,\"mean\":13.5,\"sqrt_sum\":14}"
+      },
+      "bug_localization": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 9.469,
+        "p90_latency_s": 11.6802,
+        "median_input_tokens": 140.0,
+        "median_output_tokens": 266.0,
+        "median_total_tokens": 406.0,
+        "canonical_text": "3"
+      },
+      "impossible_constraints": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 8.4815,
+        "p90_latency_s": 9.3899,
+        "median_input_tokens": 62.0,
+        "median_output_tokens": 287.0,
+        "median_total_tokens": 349.0,
+        "canonical_text": "impossible"
+      },
+      "nested_json_extraction": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 5.5835,
+        "p90_latency_s": 6.8935,
+        "median_input_tokens": 125.0,
+        "median_output_tokens": 43.0,
+        "median_total_tokens": 168.0,
+        "canonical_text": "20"
+      },
+      "base_conversion_checksum": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 5.856,
+        "p90_latency_s": 6.0096,
+        "median_input_tokens": 42.0,
+        "median_output_tokens": 103.0,
+        "median_total_tokens": 145.0,
+        "canonical_text": "9"
+      },
+      "stable_repetition": {
+        "passes": 2,
+        "runs": 2,
+        "pass_rate": 1.0,
+        "median_latency_s": 2.6985,
+        "p90_latency_s": 2.9629,
+        "median_input_tokens": 31.0,
+        "median_output_tokens": 27.5,
+        "median_total_tokens": 58.5,
+        "canonical_text": "KITE-7314"
+      }
+    },
+    "estimated_cost": {
+      "available": true,
+      "model": "gpt-5.5",
+      "input_price_per_m": 5.0,
+      "output_price_per_m": 30.0,
+      "estimated_cost_usd": 0.13541
+    }
+  },
+  "meta": {
+    "artifact": "codex_probe_baseline",
+    "generated_at_unix": 1779717272,
+    "profile": "official-sub2api-20x-fast-16c16g"
+  }
+}

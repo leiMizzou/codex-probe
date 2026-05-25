@@ -4,6 +4,36 @@ Purpose: detect whether a provider that claims `gpt-5.5` / `gpt-5.4` is sometime
 
 Run each prompt with the same model, temperature `0`, and the same reasoning setting such as `reasoning_effort=xhigh`. Repeat each prompt 3-5 times, then compare correctness, token usage, latency, and answer stability between the trusted baseline and candidate provider.
 
+This repository also ships a packaged baseline so a user can compare a candidate without first generating their own trusted reference:
+
+```bash
+python3 codex_probe.py list-baselines
+
+python3 codex_probe.py audit \
+  --baseline-id official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh \
+  --base-url "$PROVIDER_BASE_URL" \
+  --api-key "$PROVIDER_API_KEY" \
+  --label candidate \
+  --model gpt-5.5 \
+  --repeats 2 \
+  --reasoning-effort xhigh \
+  --image-probe \
+  --output reports/candidate-vs-official-sub2api-gpt-5.5-xhigh.json
+```
+
+Packaged baseline background:
+
+- Generated at: 2026-05-25 13:54:32 UTC.
+- Provider: self-hosted `sub2api` relay at `https://20x-fast-2.111138.xyz/v1`.
+- Server: 16C16G VPS.
+- Model: `gpt-5.5`.
+- Reasoning effort: `xhigh`.
+- Run shape: 16 cases, 2 repeats per case, `temperature=0`, with `gpt-image-2` enabled.
+- Result: `32/32` passed, input `2770`, output `4052`, total `6822`, median latency `5.9155s`, p90 latency `8.9552s`.
+- Features: `gpt-image-2` returned `b64_json`; snapshot `gpt-5.5-2026-04-23` worked; `/models` listed 9 model IDs.
+
+In one reference audit, `https://www.agnx.run/v1` with `gpt-5.5` and `xhigh` also passed `32/32`, but used `3.5119x` the input tokens, formed a stable `+335` input-token tier, and lacked the baseline's working `gpt-image-2` and snapshot probes. The resulting scores were `quality_score=100`, `wrapper_or_routing_suspicion=70`, `model_substitution_suspicion=0`, `billing_overhead_suspicion=89`, `feature_gap_suspicion=55`, and `overall_risk=43.55`.
+
 Scoring guidance:
 
 - Exact-answer tasks: pass only if the answer matches exactly after trimming whitespace.

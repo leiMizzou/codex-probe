@@ -4,6 +4,7 @@ include LICENSE
 include model_substitution_hard_suite.md
 include .env.example
 recursive-include examples *.sh
+recursive-include codex_probe_data *.json
 global-exclude __pycache__/*
 global-exclude *.py[cod]
 prune reports

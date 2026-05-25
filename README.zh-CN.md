@@ -19,7 +19,30 @@
 
 ## 基本流程
 
-先用你信任的 provider 生成 baseline：
+可以直接使用仓库内置的参考基线：
+
+```bash
+python3 codex_probe.py list-baselines
+```
+
+然后测试候选中转：
+
+```bash
+export PROVIDER_BASE_URL="https://candidate.example.com/v1"
+export PROVIDER_API_KEY="sk-..."
+
+python3 codex_probe.py audit \
+  --baseline-id official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh \
+  --base-url "$PROVIDER_BASE_URL" \
+  --label candidate \
+  --model gpt-5.5 \
+  --repeats 2 \
+  --reasoning-effort xhigh \
+  --image-probe \
+  --output reports/candidate-vs-official-sub2api-gpt-5.5-xhigh.json
+```
+
+如果你更信任自己的环境，也可以先生成自己的 baseline：
 
 ```bash
 python3 codex_probe.py baseline \
@@ -32,7 +55,7 @@ python3 codex_probe.py baseline \
   --output baselines/current-codex-gpt-5.5-xhigh.json
 ```
 
-然后测试候选中转：
+再用自己的 baseline 测试候选中转：
 
 ```bash
 export PROVIDER_BASE_URL="https://candidate.example.com/v1"
@@ -60,6 +83,51 @@ speed_suspicion
 profile_comparison
 overall_risk
 ```
+
+## 内置参考基线
+
+仓库内置了一份可直接比较的参考基线：
+
+```text
+id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
+```
+
+这份基线的背景配置：
+
+- 生成时间：2026-05-25 13:54:32 UTC。
+- Provider：自建 `sub2api` relay，base URL 为 `https://20x-fast-2.111138.xyz/v1`。
+- 服务器：16C16G VPS。
+- 模型：`gpt-5.5`。
+- 推理强度：`xhigh`。
+- 测试设置：`hard-v1` 题库，16 个 case，每题重复 2 次，`temperature=0`，包含 `gpt-image-2` 探针。
+- 基线结果：`32/32` 通过，input `2770`，output `4052`，total `6822`，median latency `5.9155s`，p90 latency `8.9552s`。
+- 功能结果：`gpt-image-2` 可用并返回 `b64_json`；snapshot `gpt-5.5-2026-04-23` 可用；`/models` 中列出 9 个模型 ID。
+
+这不是 OpenAI 官方发布的标准成绩，也不能证明某个候选服务的上游账号类型。它是一份固定的、已脱敏的黑盒参考样本，方便使用者拿同一套题直接对比 token、功能、速度和输出质量。
+
+## 案例：agnx 对比内置基线
+
+用这份内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`、`gpt-5.5`、`xhigh`，结果如下：
+
+这个候选服务的购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)。本轮测试里它质量全通过，延迟接近内置基线，作为 `gpt-5.5` xhigh 日常调用有价格和速度优势。它不适合需要 Codex、Spark、PPT 相关模型/能力或高并发的场景；实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准。
+
+```text
+Pass rate: baseline=1.0, candidate=1.0, delta=0.0
+Token ratio candidate/baseline: input=3.5119, output=0.9603, total=1.9963
+Estimated cost ratio: 1.2213
+Speed candidate/baseline: median_latency_ratio=1.0188, p90_latency_ratio=0.9849, output_tokens_per_s_ratio=0.9066
+Profile match: verdict=unlikely_match, confidence=49.0
+
+quality_score: 100/100
+wrapper_or_routing_suspicion: 70/100
+model_substitution_suspicion: 0/100
+billing_overhead_suspicion: 89/100
+feature_gap_suspicion: 55/100
+speed_suspicion: 0/100
+overall_risk: 43.55/100
+```
+
+解读：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，并形成 `+335` 左右的固定档位，说明存在隐藏 wrapper、适配器或路由差异的可能性。候选服务还缺少基线中可用的 `gpt-image-2` 和 snapshot 能力。
 
 ## 分数解释
 
