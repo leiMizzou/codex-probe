@@ -796,6 +796,7 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
     feature_diff = compare_features(candidate.get("feature_probes", {}), baseline.get("feature_probes", {}))
     speed_comparison = compare_speed(candidate, baseline)
     scores = score_candidate(candidate, baseline, clusters, feature_diff, quality_delta, input_ratio, total_ratio, speed_comparison)
+    profile_comparison = compare_profile(baseline, quality_delta, input_ratio, total_ratio, speed_comparison, scores)
 
     return {
         "summary": {
@@ -815,11 +816,102 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
             ),
             "overhead_clusters": clusters,
             "speed_comparison": speed_comparison,
+            "profile_comparison": profile_comparison,
             "feature_diff": feature_diff,
             "scores": scores,
         },
         "per_case": per_case,
     }
+
+
+def compare_profile(
+    baseline: dict[str, Any],
+    quality_delta: float,
+    input_ratio: float | None,
+    total_ratio: float | None,
+    speed_comparison: dict[str, Any],
+    scores: dict[str, Any],
+) -> dict[str, Any]:
+    profile = baseline_profile(baseline)
+    if not profile:
+        return {
+            "baseline_profile": None,
+            "verdict": "unknown",
+            "confidence": None,
+            "evidence": [
+                "The baseline file has no profile label. Rebuild it with --profile codex-fast if it represents Codex Fast mode."
+            ],
+        }
+
+    confidence = 100.0
+    evidence = [f"Baseline profile label: {profile}"]
+
+    if quality_delta < -0.03:
+        penalty = min(40, abs(quality_delta) * 220)
+        confidence -= penalty
+        evidence.append(f"Quality is lower than baseline by {quality_delta}.")
+    else:
+        evidence.append("Quality is close to the baseline.")
+
+    latency_ratio = speed_comparison.get("median_latency_ratio")
+    p90_latency_ratio = speed_comparison.get("p90_latency_ratio")
+    output_tps_ratio = speed_comparison.get("output_tokens_per_s_ratio")
+    if latency_ratio is not None:
+        if latency_ratio > 1.35:
+            confidence -= min(25, (latency_ratio - 1) * 35)
+            evidence.append(f"Median latency is {latency_ratio}x the baseline.")
+        else:
+            evidence.append(f"Median latency is close to baseline ({latency_ratio}x).")
+    if p90_latency_ratio is not None and p90_latency_ratio > 1.6:
+        confidence -= min(15, (p90_latency_ratio - 1) * 20)
+        evidence.append(f"P90 latency is {p90_latency_ratio}x the baseline.")
+    if output_tps_ratio is not None:
+        if output_tps_ratio < 0.75:
+            confidence -= min(20, (1 - output_tps_ratio) * 60)
+            evidence.append(f"Output token throughput is {output_tps_ratio}x the baseline.")
+        else:
+            evidence.append(f"Output token throughput is close to baseline ({output_tps_ratio}x).")
+
+    if input_ratio is not None and input_ratio > 1.25:
+        confidence -= min(20, (input_ratio - 1) * 25)
+        evidence.append(f"Input token usage is {input_ratio}x the baseline.")
+    if total_ratio is not None and total_ratio > 1.35:
+        confidence -= min(15, (total_ratio - 1) * 20)
+        evidence.append(f"Total token usage is {total_ratio}x the baseline.")
+
+    wrapper_score = float(scores.get("wrapper_or_routing_suspicion") or 0)
+    feature_score = float(scores.get("feature_gap_suspicion") or 0)
+    substitution_score = float(scores.get("model_substitution_suspicion") or 0)
+    confidence -= wrapper_score * 0.15
+    confidence -= feature_score * 0.1
+    confidence -= substitution_score * 0.2
+
+    confidence = max(0.0, min(100.0, round(confidence, 2)))
+    if confidence >= 80:
+        verdict = "matches_baseline_profile"
+    elif confidence >= 60:
+        verdict = "partial_match"
+    else:
+        verdict = "unlikely_match"
+
+    return {
+        "baseline_profile": profile,
+        "verdict": verdict,
+        "confidence": confidence,
+        "evidence": evidence,
+        "notes": [
+            "This is relative profile matching, not proof of the provider's real upstream mode.",
+            "For Codex Fast detection, build the trusted baseline with --profile codex-fast and compare candidates against it.",
+            "To distinguish Fast from a slower/deeper mode, build separate baselines for each mode and audit the candidate against both.",
+        ],
+    }
+
+
+def baseline_profile(baseline: dict[str, Any]) -> str:
+    meta = baseline.get("meta") or {}
+    suite = baseline.get("suite") or {}
+    profile = meta.get("profile") or suite.get("profile") or ""
+    return str(profile).strip()
 
 
 def compare_speed(candidate: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
@@ -1045,6 +1137,8 @@ def print_baseline_summary(data: dict[str, Any]) -> None:
     print("Baseline generated")
     print("==================")
     print(f"Provider: {data['provider']['label']} | {data['provider']['base_url']} | model={data['provider']['model']}")
+    if baseline_profile(data):
+        print(f"Profile: {baseline_profile(data)}")
     print(f"Suite: {data['suite']['version']} | cases={data['suite']['case_count']} | repeats={data['suite']['repeats']} | reasoning={data['suite']['reasoning_effort']}")
     print(f"Pass rate: {summary['passed']}/{summary['runs']} ({summary['pass_rate']})")
     print(f"Tokens: input={summary['tokens']['input']}, output={summary['tokens']['output']}, total={summary['tokens']['total']}")
@@ -1063,6 +1157,9 @@ def print_audit_summary(report: dict[str, Any]) -> None:
     print("========================")
     print(f"Baseline: {report['baseline']['provider']['label']} | {report['baseline']['provider']['base_url']} | model={report['baseline']['provider']['model']}")
     print(f"Candidate: {report['candidate']['provider']['label']} | {report['candidate']['provider']['base_url']} | model={report['candidate']['provider']['model']}")
+    profile = summary.get("profile_comparison", {})
+    if profile.get("baseline_profile"):
+        print(f"Baseline profile: {profile.get('baseline_profile')}")
     print(f"Suite: {report['candidate']['suite']['version']} | cases={report['candidate']['suite']['case_count']} | repeats={report['candidate']['suite']['repeats']} | reasoning={report['candidate']['suite']['reasoning_effort']}")
     print()
     print(f"Pass rate: baseline={summary['baseline_pass_rate']}, candidate={summary['candidate_pass_rate']}, delta={summary['quality_delta']}")
@@ -1076,6 +1173,12 @@ def print_audit_summary(report: dict[str, Any]) -> None:
         f"p90_latency_ratio={speed.get('p90_latency_ratio')}, "
         f"output_tokens_per_s_ratio={speed.get('output_tokens_per_s_ratio')}"
     )
+    if profile:
+        print(
+            "Profile match: "
+            f"verdict={profile.get('verdict')}, "
+            f"confidence={profile.get('confidence')}"
+        )
     print()
     print("Scores:")
     for key, value in scores.items():
@@ -1107,6 +1210,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
     data["meta"] = {
         "artifact": "codex_probe_baseline",
         "generated_at_unix": int(time.time()),
+        "profile": args.profile or None,
     }
     save_json(args.output, data, provider.api_key)
     print_baseline_summary(data)
@@ -1153,6 +1257,7 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--base-url", default="")
     b.add_argument("--api-key", default="")
     b.add_argument("--label", default="baseline")
+    b.add_argument("--profile", default="", help="Optional baseline profile label, e.g. codex-fast, codex-deep, official-xhigh.")
     b.add_argument("--model", default=DEFAULT_MODEL)
     b.add_argument("--repeats", type=int, default=2, help="Repeat each hard prompt. Higher values improve quality and speed confidence.")
     b.add_argument("--reasoning-effort", default=DEFAULT_REASONING)

@@ -24,6 +24,7 @@
 ```bash
 python3 codex_probe.py baseline \
   --current-codex \
+  --profile codex-fast \
   --model gpt-5.5 \
   --repeats 2 \
   --reasoning-effort xhigh \
@@ -56,6 +57,7 @@ model_substitution_suspicion
 billing_overhead_suspicion
 feature_gap_suspicion
 speed_suspicion
+profile_comparison
 overall_risk
 ```
 
@@ -67,7 +69,32 @@ overall_risk
 - `billing_overhead_suspicion`: token / 成本是否明显高于 baseline。
 - `feature_gap_suspicion`: `gpt-image-2`、snapshot model、JSON schema 等功能是否缺失。
 - `speed_suspicion`: median latency、p90 latency、输出 token/s 是否明显差于 baseline。
+- `profile_comparison`: 如果 baseline 用 `--profile codex-fast` 标注，会输出候选是否匹配这个 Codex Fast baseline。
 - `overall_risk`: 综合风险。
+
+## Codex Fast 判断
+
+这个工具不能从黑盒 API 里证明对方内部真的用了 Codex Fast 模式；它能判断的是：候选中转是否像你信任的 Codex Fast baseline。
+
+生成基线时标注 profile：
+
+```bash
+python3 codex_probe.py baseline \
+  --current-codex \
+  --profile codex-fast \
+  --model gpt-5.5 \
+  --repeats 3 \
+  --reasoning-effort xhigh \
+  --output baselines/current-codex-fast-gpt-5.5-xhigh.json
+```
+
+之后 audit 报告会输出：
+
+```text
+Profile match: verdict=matches_baseline_profile, confidence=...
+```
+
+如果你要区分 Fast 和更慢/更深的模式，就分别生成两个 baseline，例如 `--profile codex-fast` 和 `--profile codex-deep`，同一个候选中转分别 audit 两次，看它更接近哪一个。
 
 ## 速度测试
 

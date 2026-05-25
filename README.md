@@ -43,6 +43,7 @@ codex-probe --help
 ```bash
 python3 codex_probe.py baseline \
   --current-codex \
+  --profile codex-fast \
   --model gpt-5.5 \
   --repeats 2 \
   --reasoning-effort xhigh \
@@ -94,7 +95,30 @@ python3 codex_probe.py audit \
 - `billing_overhead_suspicion`: token / 成本是否明显高于 baseline。
 - `feature_gap_suspicion`: `gpt-image-2`、snapshot model、JSON schema 等能力是否缺失。
 - `speed_suspicion`: median latency、p90 latency、输出 token/s 是否明显差于 baseline。
+- `profile_comparison`: 如果 baseline 用 `--profile codex-fast` 标注，会输出候选是否匹配这个 Codex Fast baseline。
 - `overall_risk`: 综合风险评分。
+
+### Codex Fast 模式判断
+
+黑盒请求无法证明候选 provider 内部真的用了 Codex Fast 模式，但可以判断它是否“像你的 Codex Fast 基线”。生成 baseline 时加上 profile：
+
+```bash
+python3 codex_probe.py baseline \
+  --current-codex \
+  --profile codex-fast \
+  --model gpt-5.5 \
+  --repeats 3 \
+  --reasoning-effort xhigh \
+  --output baselines/current-codex-fast-gpt-5.5-xhigh.json
+```
+
+之后 audit 会输出：
+
+```text
+Profile match: verdict=matches_baseline_profile, confidence=...
+```
+
+如果想区分 Fast 和更慢/更深的模式，分别生成两个 baseline，例如 `--profile codex-fast` 和 `--profile codex-deep`，然后同一个候选中转分别 audit 两次，看它更接近哪一个。
 
 如果候选 provider 出现类似：
 
@@ -172,6 +196,7 @@ If you use Codex locally and trust its configured provider:
 ```bash
 python3 codex_probe.py baseline \
   --current-codex \
+  --profile codex-fast \
   --model gpt-5.5 \
   --repeats 2 \
   --reasoning-effort xhigh \
@@ -225,6 +250,7 @@ Reports include:
 - `billing_overhead_suspicion`: candidate uses much more input/total token budget than baseline.
 - `feature_gap_suspicion`: missing or different features compared with baseline.
 - `speed_suspicion`: candidate is materially slower than baseline by median latency, p90 latency, or output tokens per second.
+- `profile_comparison`: when the baseline is labeled with `--profile codex-fast`, reports whether the candidate matches that Codex Fast baseline.
 - `overall_risk`: weighted summary of routing, substitution, billing, feature, and speed issues.
 
 Example:
@@ -244,6 +270,24 @@ overall_risk: 49.25/100
 Every chat completion run records total request latency. Reports summarize median latency, p90 latency, median output tokens per second, and candidate/baseline ratios. Use `--current-codex` to build the baseline from the Codex App provider you already trust, then audit the relay against that file.
 
 Latency is noisy, so treat speed as supporting evidence. A relay that is much slower than the Codex baseline may be overloaded, routed through an extra wrapper, or using a different upstream path. A relay that is faster is not automatically suspicious; quality, feature, and token evidence still matter.
+
+## Codex Fast Profile Matching
+
+Codex Probe cannot prove the provider's real internal upstream mode from black-box API responses. It can test whether the candidate behaves like a trusted Codex Fast baseline.
+
+Build the baseline with a profile label:
+
+```bash
+python3 codex_probe.py baseline \
+  --current-codex \
+  --profile codex-fast \
+  --model gpt-5.5 \
+  --repeats 3 \
+  --reasoning-effort xhigh \
+  --output baselines/current-codex-fast-gpt-5.5-xhigh.json
+```
+
+Audit reports then include `profile_comparison` with `verdict`, `confidence`, and evidence. To distinguish Fast from a deeper/slower mode, build separate baselines for each mode and compare the same candidate against both.
 
 ## Reading Token Clusters
 
