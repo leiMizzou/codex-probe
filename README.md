@@ -54,6 +54,12 @@
 >
 > Detailed scores, token tiers, speed ratios, and feature probe results: see the "Case study" subsection inside each language section below.
 
+#### 📨 提名新候选 / Nominate a candidate
+
+> 欢迎大家用 `codex-probe` 自测，或者把想审计的中转 endpoint [开 issue](https://github.com/leiMizzou/codex-probe/issues/new) 提名给我。**通过上面入选条件的候选**会被加进推荐表，并按 **周 / 月** 周期跑复测，结果直接更新到本表 —— 不通过的也会在 issue 里给出失败原因。
+>
+> Run `codex-probe` yourself, or [open an issue](https://github.com/leiMizzou/codex-probe/issues/new) nominating a relay endpoint you'd like audited. **Candidates that clear the inclusion criteria** above get added to this table and re-tested on a **weekly / monthly** cadence; failures get a public reason in the issue thread.
+
 ---
 
 ## 🇨🇳 简体中文
