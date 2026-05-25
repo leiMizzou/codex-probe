@@ -1,5 +1,10 @@
 # Provider Probe
 
+<p align="right">
+  <a href="README.zh-CN.md">简体中文</a> |
+  <a href="README.md#english">English</a>
+</p>
+
 用于黑盒评估 OpenAI-compatible 中转站 / API 网关 / 模型代理的命令行工具。
 
 它的目标不是证明上游账号到底是 Free、Plus 还是 Pro，而是用同一套复杂题和功能探针，对比一个可信 baseline，判断候选 provider 是否存在：

@@ -1,5 +1,10 @@
 # Provider Probe
 
+<p align="right">
+  <a href="#中文说明">简体中文</a> |
+  <a href="#english">English</a>
+</p>
+
 ## 中文说明
 
 Provider Probe 是一个用于黑盒评估 OpenAI-compatible 中转站、API 网关、模型代理的命令行工具。
