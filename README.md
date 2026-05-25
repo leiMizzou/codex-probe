@@ -171,9 +171,9 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 
 ### 📋 案例：agnx 对比内置基线
 
-用内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`（`gpt-5.5` + `xhigh`）。
+用内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`（`gpt-5.5` + `xhigh`）。本节数字来自 2026-05-25 15:48:14 UTC 的重测报告。
 
-> **结论**：质量满分、延迟接近基线，作为日常 `gpt-5.5 xhigh` 调用有价格和速度优势；不适合需要 Codex / Spark / PPT 相关模型或高并发的场景。
+> **结论**：文本质量满分、延迟接近基线，作为日常 `gpt-5.5 xhigh` 文本调用可用；但它不是全功能等价 provider。候选服务有明显 input token / 成本开销，且本轮探针确认 `gpt-image-2` 与 `gpt-5.5-2026-04-23` snapshot 不可用或失败。
 >
 > 候选服务购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)
 > （实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准）
@@ -183,13 +183,13 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 | 维度 | Baseline | Candidate | Ratio | |
 |---|---|---|---|---|
 | Pass rate | 1.00 | 1.00 | Δ = 0.0 | ✅ |
-| Input tokens | 1× | **3.51×** | — | 🔴 偏高 |
-| Output tokens | 1× | 0.96× | — | ✅ |
-| Total tokens | 1× | 2.00× | — | 🟡 |
-| Estimated cost | 1× | 1.22× | — | 🟡 |
-| Median latency | 1× | 1.02× | — | ✅ |
-| p90 latency | 1× | 0.98× | — | ✅ |
-| Output tokens/s | 1× | 0.91× | — | ✅ |
+| Input tokens | 1× | **4.0058×** | — | 🔴 偏高 |
+| Output tokens | 1× | 0.9817× | — | ✅ |
+| Total tokens | 1× | 2.2096× | — | 🟡 |
+| Estimated cost | 1× | 1.291× | — | 🟡 |
+| Median latency | 1× | 0.9683× | — | ✅ |
+| p90 latency | 1× | 1.0582× | — | ✅ |
+| Output tokens/s | 1× | 0.7709× | — | ✅ |
 
 #### 风险评分
 
@@ -198,13 +198,14 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 | `quality_score` | **100 / 100** | 无弱模型替换信号 |
 | `wrapper_or_routing_suspicion` | 70 / 100 | 🟡 存在固定 input token 档位 |
 | `model_substitution_suspicion` | 0 / 100 | ✅ |
-| `billing_overhead_suspicion` | 89 / 100 | 🔴 token 用量明显高 |
+| `billing_overhead_suspicion` | 100 / 100 | 🔴 token / 成本用量明显高 |
 | `feature_gap_suspicion` | 55 / 100 | 🟡 缺 `gpt-image-2` 和 snapshot |
 | `speed_suspicion` | 0 / 100 | ✅ |
-| `overall_risk` | **43.55 / 100** | — |
+| `overall_risk` | **45.75 / 100** | high |
 | `profile_comparison` | `unlikely_match` (49.0) | — |
+| `assessment` | `passes_text_quality_but_provider_differs` | 文本质量通过，但 provider 行为差异明显 |
 
-> **解读**：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，形成 `+335` 左右的固定档位 —— 这是隐藏 wrapper / 适配器 / 路由差异的典型指纹。候选服务还缺少基线中可用的 `gpt-image-2` 和 snapshot 能力。
+> **解读**：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，形成 `+335` 左右的固定档位 —— 这是隐藏 wrapper / 适配器 / 路由差异的典型指纹。候选 `/models` 列出 17 个 ID，并包含若干 `gpt-5.*` / Codex 名称，但本轮只验证了 `gpt-5.5` 文本；`gpt-image-2` 返回 403，snapshot `gpt-5.5-2026-04-23` 返回 503。
 
 ### 🎯 评分维度
 
@@ -268,6 +269,22 @@ Profile match: verdict=matches_baseline_profile, confidence=...
 - API 行为无法可靠证明上游是 ChatGPT Free / Plus / Pro / Team
 - `gpt-image-2` 能不能用，更多说明 API/project/group 权限，不直接说明 ChatGPT 订阅等级
 - token 数是 provider 返回的，可能包含隐藏 prompt、适配器包装或计费层开销
+
+### 🛠 进阶配置
+
+| Flag | 作用 |
+|---|---|
+| `--prices-file path.json` | 加载自定义价格表（`{"gpt-foo": {"input": 5.0, "output": 30.0}}`，USD per 1M tokens）。会 merge 进内置价格表，让未在源码中预置的模型也能算成本。 |
+| `--no-retry` | 关闭默认 HTTP 重试。默认只对幂等 `GET` / `HEAD` / `OPTIONS` 的 5xx 或网络异常做最多 2 次指数退避；付费 `POST` 探针默认单次发送。 |
+| `PROVIDER_BASE_URL` / `PROVIDER_API_KEY` 环境变量 | 推荐用法。`--api-key` 会落入 shell history。 |
+
+### 🧪 跑测试
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+测试覆盖评分函数、聚类、validator、价格表加载、HTTP 重试策略（无真实网络）。零依赖，纯 stdlib。
 
 > 完整中文说明见 **[README.zh-CN.md](README.zh-CN.md)**，题库说明见 **[model_substitution_hard_suite.md](model_substitution_hard_suite.md)**。
 
@@ -446,9 +463,9 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 
 ### 📋 Case study: agnx vs the built-in baseline
 
-The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + `xhigh`.
+The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + `xhigh`. Numbers below come from the 2026-05-25 15:48:14 UTC rerun.
 
-> **Summary**: passed all quality cases, latency on par with the baseline; practical lower-cost option for `gpt-5.5 xhigh` usage. Not a fit for workflows that need Codex / Spark / PPT-related models or high concurrency.
+> **Summary**: passed all text-quality cases, with latency close to the baseline; usable for daily `gpt-5.5 xhigh` text workloads. It is not a full feature-equivalent provider: the rerun shows material input-token / estimated-cost overhead, and `gpt-image-2` plus the `gpt-5.5-2026-04-23` snapshot were unavailable or failed.
 >
 > Candidate purchase link: [candidate that passed the current `gpt-5.5` + `xhigh` hard-v1 comparison](https://pay.ldxp.cn/shop/7TD7O3QI) (pricing, availability, permissions, stability, concurrency, and support are governed by the vendor page).
 
@@ -457,13 +474,13 @@ The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + 
 | Metric | Baseline | Candidate | Ratio | |
 |---|---|---|---|---|
 | Pass rate | 1.00 | 1.00 | Δ = 0.0 | ✅ |
-| Input tokens | 1× | **3.51×** | — | 🔴 |
-| Output tokens | 1× | 0.96× | — | ✅ |
-| Total tokens | 1× | 2.00× | — | 🟡 |
-| Estimated cost | 1× | 1.22× | — | 🟡 |
-| Median latency | 1× | 1.02× | — | ✅ |
-| p90 latency | 1× | 0.98× | — | ✅ |
-| Output tokens/s | 1× | 0.91× | — | ✅ |
+| Input tokens | 1× | **4.0058×** | — | 🔴 |
+| Output tokens | 1× | 0.9817× | — | ✅ |
+| Total tokens | 1× | 2.2096× | — | 🟡 |
+| Estimated cost | 1× | 1.291× | — | 🟡 |
+| Median latency | 1× | 0.9683× | — | ✅ |
+| p90 latency | 1× | 1.0582× | — | ✅ |
+| Output tokens/s | 1× | 0.7709× | — | ✅ |
 
 #### Risk scores
 
@@ -472,13 +489,14 @@ The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + 
 | `quality_score` | **100 / 100** | No weak-model signal |
 | `wrapper_or_routing_suspicion` | 70 / 100 | 🟡 Fixed input-token tier present |
 | `model_substitution_suspicion` | 0 / 100 | ✅ |
-| `billing_overhead_suspicion` | 89 / 100 | 🔴 Token usage materially higher |
+| `billing_overhead_suspicion` | 100 / 100 | 🔴 Token / estimated-cost usage materially higher |
 | `feature_gap_suspicion` | 55 / 100 | 🟡 Missing `gpt-image-2` and snapshot |
 | `speed_suspicion` | 0 / 100 | ✅ |
-| `overall_risk` | **43.55 / 100** | — |
+| `overall_risk` | **45.75 / 100** | high |
 | `profile_comparison` | `unlikely_match` (49.0) | — |
+| `assessment` | `passes_text_quality_but_provider_differs` | Text quality passed, provider behavior differs |
 
-> **Reading**: both passed all cases, so no weak-model substitution signal. The candidate used much more input token budget and formed a stable `+335` tier — the typical fingerprint of hidden wrappers / adapters / routing differences. The candidate also lacked the baseline's working `gpt-image-2` and snapshot probes.
+> **Reading**: both passed all cases, so no weak-model substitution signal. The candidate used much more input token budget and formed a stable `+335` tier, a typical fingerprint of hidden wrappers / adapters / routing differences. Candidate `/models` listed 17 IDs and included several `gpt-5.*` / Codex names, but this audit only validated `gpt-5.5` text; `gpt-image-2` returned 403 and snapshot `gpt-5.5-2026-04-23` returned 503.
 
 ### 🎯 Score reference
 
@@ -543,6 +561,22 @@ that is strong evidence of hidden wrapper / routing differences:
 - API behavior cannot reliably identify ChatGPT Free / Plus / Pro / Team account type
 - `gpt-image-2` success / failure reflects API / project / group permission, not necessarily ChatGPT subscription
 - Token counts are provider-reported and may include hidden prompt, adapter, or billing-layer overhead
+
+### 🛠 Advanced configuration
+
+| Flag | Purpose |
+|---|---|
+| `--prices-file path.json` | Load a custom price table (`{"gpt-foo": {"input": 5.0, "output": 30.0}}`, USD per 1M tokens). Merges into the built-in table so models not pre-listed in the source can also get cost estimates. |
+| `--no-retry` | Disable the default HTTP retry. By default, only idempotent `GET` / `HEAD` / `OPTIONS` requests retry 5xx / transport errors up to 2 times with exponential backoff; paid `POST` probes are single-shot. |
+| `PROVIDER_BASE_URL` / `PROVIDER_API_KEY` env vars | Recommended. `--api-key` on the command line may end up in shell history. |
+
+### 🧪 Running tests
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+Covers scoring functions, clustering, validators, price-file loading, and the HTTP retry policy (no real network calls). Zero deps, stdlib only.
 
 ### 🧹 Repository hygiene
 

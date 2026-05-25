@@ -41,10 +41,14 @@ SNAPSHOT_PROBES = {
     "gpt-5.4": "gpt-5.4-2026-03-05",
     "gpt-5.5": "gpt-5.5-2026-04-23",
 }
-DEFAULT_PRICES_PER_M = {
+DEFAULT_PRICES_PER_M: dict[str, dict[str, float]] = {
     "gpt-5.4": {"input": 2.5, "output": 15.0},
     "gpt-5.5": {"input": 5.0, "output": 30.0},
 }
+
+DEFAULT_HTTP_RETRIES = 2
+DEFAULT_HTTP_RETRY_DELAY = 0.5
+
 BUILTIN_BASELINES = {
     "official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh": {
         "filename": "official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh.json",
@@ -59,6 +63,14 @@ class Provider:
     base_url: str
     api_key: str
     model: str
+
+
+@dataclass
+class RuntimeOptions:
+    prices_per_m: dict[str, dict[str, float]]
+    http_retries: int = DEFAULT_HTTP_RETRIES
+    http_retry_delay: float = DEFAULT_HTTP_RETRY_DELAY
+    retry_non_idempotent: bool = False
 
 
 @dataclass
@@ -389,8 +401,19 @@ def load_current_codex_provider(model_override: str = "") -> Provider:
 
 
 def explicit_provider(label: str, base_url: str, api_key: str, model: str) -> Provider:
-    if not base_url or not api_key or not model:
-        raise SystemExit("Provider requires base_url, api_key, and model.")
+    missing = []
+    if not base_url:
+        missing.append("--base-url or PROVIDER_BASE_URL")
+    if not api_key:
+        missing.append("--api-key or PROVIDER_API_KEY")
+    if not model:
+        missing.append("--model")
+    if missing:
+        raise SystemExit(
+            "error: missing required provider config: "
+            + ", ".join(missing)
+            + ".\nTip: prefer env vars (PROVIDER_BASE_URL, PROVIDER_API_KEY) over --api-key so the key is not stored in shell history."
+        )
     return Provider(label=label, base_url=base_url.rstrip("/"), api_key=api_key, model=model)
 
 
@@ -399,7 +422,7 @@ def safe_headers(headers: dict[str, Any]) -> dict[str, str]:
     return {key: str(value) for key, value in headers.items() if key.lower() in wanted}
 
 
-def http(provider: Provider, method: str, path: str, body: Any = None, timeout: int = 120) -> dict[str, Any]:
+def _http_once(provider: Provider, method: str, path: str, body: Any, timeout: int) -> dict[str, Any]:
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(
         provider.base_url + path,
@@ -440,12 +463,56 @@ def http(provider: Provider, method: str, path: str, body: Any = None, timeout: 
         }
 
 
+def _is_retriable(result: dict[str, Any]) -> bool:
+    status = result.get("status")
+    if status is None:
+        return True
+    return isinstance(status, int) and status >= 500
+
+
+def _default_runtime_options() -> RuntimeOptions:
+    return RuntimeOptions(prices_per_m={model: prices.copy() for model, prices in DEFAULT_PRICES_PER_M.items()})
+
+
+def _method_can_retry(method: str, runtime: RuntimeOptions) -> bool:
+    if runtime.retry_non_idempotent:
+        return True
+    return method.upper() in {"GET", "HEAD", "OPTIONS"}
+
+
+def http(
+    provider: Provider,
+    method: str,
+    path: str,
+    body: Any = None,
+    timeout: int = 120,
+    runtime: RuntimeOptions | None = None,
+) -> dict[str, Any]:
+    runtime = runtime or _default_runtime_options()
+    retries = max(0, int(runtime.http_retries)) if _method_can_retry(method, runtime) else 0
+    delay = max(0.0, float(runtime.http_retry_delay))
+    started = time.time()
+    for attempt in range(retries + 1):
+        result = _http_once(provider, method, path, body, timeout)
+        if result["ok"] or attempt == retries or not _is_retriable(result):
+            result["attempts"] = attempt + 1
+            result["retries_used"] = attempt
+            result["elapsed_s"] = round(time.time() - started, 3)
+            return result
+        if delay > 0:
+            time.sleep(delay * (2 ** attempt))
+    return result  # unreachable in practice
+
+
 def usage_tokens(result: dict[str, Any]) -> dict[str, int]:
     usage = result.get("usage") or {}
+    input_tokens = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+    output_tokens = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+    total_tokens = int(usage.get("total_tokens") or 0) or input_tokens + output_tokens
     return {
-        "input": int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0),
-        "output": int(usage.get("completion_tokens") or usage.get("output_tokens") or 0),
-        "total": int(usage.get("total_tokens") or 0),
+        "input": input_tokens,
+        "output": output_tokens,
+        "total": total_tokens,
     }
 
 
@@ -454,6 +521,8 @@ def extract_chat(provider: Provider, resp: dict[str, Any]) -> dict[str, Any]:
         "ok": resp["ok"],
         "status": resp["status"],
         "elapsed_s": resp["elapsed_s"],
+        "attempts": resp.get("attempts", 1),
+        "retries_used": resp.get("retries_used", 0),
         "headers": resp.get("headers", {}),
     }
     if not resp["ok"]:
@@ -482,7 +551,14 @@ def extract_chat(provider: Provider, resp: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
-def run_case(provider: Provider, case: Case, repeat_index: int, reasoning_effort: str, timeout: int) -> dict[str, Any]:
+def run_case(
+    provider: Provider,
+    case: Case,
+    repeat_index: int,
+    reasoning_effort: str,
+    timeout: int,
+    runtime: RuntimeOptions,
+) -> dict[str, Any]:
     body: dict[str, Any] = {
         "model": provider.model,
         "messages": [{"role": "user", "content": case.prompt}],
@@ -492,7 +568,7 @@ def run_case(provider: Provider, case: Case, repeat_index: int, reasoning_effort
     }
     if reasoning_effort:
         body["reasoning_effort"] = reasoning_effort
-    result = extract_chat(provider, http(provider, "POST", "/chat/completions", body, timeout=timeout))
+    result = extract_chat(provider, http(provider, "POST", "/chat/completions", body, timeout=timeout, runtime=runtime))
     result.update(
         {
             "case_id": case.case_id,
@@ -507,9 +583,20 @@ def run_case(provider: Provider, case: Case, repeat_index: int, reasoning_effort
     return result
 
 
-def model_list(provider: Provider, timeout: int) -> dict[str, Any]:
-    resp = http(provider, "GET", "/models", timeout=timeout)
-    item: dict[str, Any] = {"ok": resp["ok"], "status": resp["status"], "elapsed_s": resp["elapsed_s"], "headers": resp.get("headers", {})}
+def response_meta(resp: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": resp["ok"],
+        "status": resp["status"],
+        "elapsed_s": resp["elapsed_s"],
+        "attempts": resp.get("attempts", 1),
+        "retries_used": resp.get("retries_used", 0),
+        "headers": resp.get("headers", {}),
+    }
+
+
+def model_list(provider: Provider, timeout: int, runtime: RuntimeOptions) -> dict[str, Any]:
+    resp = http(provider, "GET", "/models", timeout=timeout, runtime=runtime)
+    item: dict[str, Any] = response_meta(resp)
     if not resp["ok"]:
         item["error_preview"] = redact(resp["raw"][:1000], provider.api_key)
         return item
@@ -531,14 +618,14 @@ def model_list(provider: Provider, timeout: int) -> dict[str, Any]:
     return item
 
 
-def image_probe(provider: Provider, timeout: int) -> dict[str, Any]:
+def image_probe(provider: Provider, timeout: int, runtime: RuntimeOptions) -> dict[str, Any]:
     body = {
         "model": "gpt-image-2",
         "prompt": "A single plain red square on a white background, no text, no watermark.",
         "size": "1024x1024",
     }
-    resp = http(provider, "POST", "/images/generations", body, timeout=timeout)
-    item: dict[str, Any] = {"ok": resp["ok"], "status": resp["status"], "elapsed_s": resp["elapsed_s"], "headers": resp.get("headers", {})}
+    resp = http(provider, "POST", "/images/generations", body, timeout=timeout, runtime=runtime)
+    item: dict[str, Any] = response_meta(resp)
     if not resp["ok"]:
         try:
             item["error"] = json.loads(redact(resp["raw"], provider.api_key))
@@ -561,9 +648,28 @@ def image_probe(provider: Provider, timeout: int) -> dict[str, Any]:
     return item
 
 
-def feature_probes(provider: Provider, timeout: int, do_image_probe: bool) -> dict[str, Any]:
-    probes: dict[str, Any] = {"models_list": model_list(provider, timeout)}
-    probes["model_retrieve"] = http(provider, "GET", f"/models/{provider.model}", timeout=timeout)
+def _validate_probe_schema_text(text: str) -> tuple[bool, str | None]:
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return False, f"invalid_json:{exc.msg}"
+    if not isinstance(data, dict):
+        return False, "not_object"
+    if set(data.keys()) != {"verdict", "score"}:
+        return False, "unexpected_keys"
+    if data.get("verdict") not in {"pass", "warn", "fail"}:
+        return False, "verdict_out_of_enum"
+    score = data.get("score")
+    if not isinstance(score, int) or isinstance(score, bool):
+        return False, "score_not_integer"
+    if score < 0 or score > 10:
+        return False, "score_out_of_range"
+    return True, None
+
+
+def feature_probes(provider: Provider, timeout: int, do_image_probe: bool, runtime: RuntimeOptions) -> dict[str, Any]:
+    probes: dict[str, Any] = {"models_list": model_list(provider, timeout, runtime)}
+    probes["model_retrieve"] = http(provider, "GET", f"/models/{provider.model}", timeout=timeout, runtime=runtime)
     probes["model_retrieve"].pop("raw", None)
 
     snapshot = SNAPSHOT_PROBES.get(provider.model)
@@ -575,7 +681,10 @@ def feature_probes(provider: Provider, timeout: int, do_image_probe: bool) -> di
             "temperature": 0,
             "store": False,
         }
-        probes["snapshot_chat"] = extract_chat(provider, http(provider, "POST", "/chat/completions", body, timeout=timeout))
+        probes["snapshot_chat"] = extract_chat(
+            provider,
+            http(provider, "POST", "/chat/completions", body, timeout=timeout, runtime=runtime),
+        )
 
     schema_body = {
         "model": provider.model,
@@ -600,17 +709,36 @@ def feature_probes(provider: Provider, timeout: int, do_image_probe: bool) -> di
         "temperature": 0,
         "store": False,
     }
-    probes["chat_json_schema"] = extract_chat(provider, http(provider, "POST", "/chat/completions", schema_body, timeout=timeout))
+    schema_probe = extract_chat(
+        provider,
+        http(provider, "POST", "/chat/completions", schema_body, timeout=timeout, runtime=runtime),
+    )
+    if schema_probe.get("ok"):
+        conforms, reason = _validate_probe_schema_text(str(schema_probe.get("text") or ""))
+        schema_probe["schema_conforms"] = conforms
+        if reason:
+            schema_probe["schema_error"] = reason
+    else:
+        schema_probe["schema_conforms"] = False
+    probes["chat_json_schema"] = schema_probe
     if do_image_probe:
-        probes["image_generation"] = image_probe(provider, timeout=180)
+        probes["image_generation"] = image_probe(provider, timeout=180, runtime=runtime)
     return probes
 
 
-def run_suite(provider: Provider, repeats: int, reasoning_effort: str, timeout: int, do_image_probe: bool) -> dict[str, Any]:
+def run_suite(
+    provider: Provider,
+    repeats: int,
+    reasoning_effort: str,
+    timeout: int,
+    do_image_probe: bool,
+    runtime: RuntimeOptions | None = None,
+) -> dict[str, Any]:
+    runtime = runtime or _default_runtime_options()
     runs = []
     for repeat in range(repeats):
         for case in HARD_SUITE:
-            runs.append(run_case(provider, case, repeat, reasoning_effort, timeout))
+            runs.append(run_case(provider, case, repeat, reasoning_effort, timeout, runtime))
     return {
         "provider": {
             "label": provider.label,
@@ -623,13 +751,18 @@ def run_suite(provider: Provider, repeats: int, reasoning_effort: str, timeout: 
             "repeats": repeats,
             "reasoning_effort": reasoning_effort or None,
         },
-        "feature_probes": feature_probes(provider, timeout, do_image_probe),
+        "feature_probes": feature_probes(provider, timeout, do_image_probe, runtime),
         "runs": runs,
-        "summary": summarize_runs(runs),
+        "summary": summarize_runs(runs, runtime, provider.model),
     }
 
 
-def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize_runs(
+    runs: list[dict[str, Any]],
+    runtime: RuntimeOptions | None = None,
+    provider_model: str = "",
+) -> dict[str, Any]:
+    runtime = runtime or _default_runtime_options()
     total = len(runs)
     passed = sum(1 for run in runs if run.get("pass"))
     tokens = {
@@ -660,7 +793,7 @@ def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
         "median_latency_s": median(elapsed),
         "speed": speed_profile(runs),
         "by_case": by_case,
-        "estimated_cost": estimate_cost(runs),
+        "estimated_cost": estimate_cost(runs, runtime.prices_per_m, provider_model),
     }
 
 
@@ -730,13 +863,46 @@ def percentile(values: list[float | int], pct: float) -> float | None:
     return round(ordered[low] * (1 - fraction) + ordered[high] * fraction, 4)
 
 
-def estimate_cost(runs: list[dict[str, Any]]) -> dict[str, Any]:
+def _load_prices_file(path: str) -> dict[str, dict[str, float]]:
+    if not path:
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"error: cannot read --prices-file {path}: {exc}")
+    if not isinstance(data, dict):
+        raise SystemExit(f"error: --prices-file {path} must contain a JSON object {{model: {{input, output}}}}")
+    cleaned: dict[str, dict[str, float]] = {}
+    for model, prices in data.items():
+        if not isinstance(prices, dict) or "input" not in prices or "output" not in prices:
+            raise SystemExit(f"error: --prices-file entry '{model}' must include 'input' and 'output' (USD per 1M tokens)")
+        try:
+            cleaned[str(model)] = {"input": float(prices["input"]), "output": float(prices["output"])}
+        except (TypeError, ValueError):
+            raise SystemExit(f"error: --prices-file entry '{model}' has non-numeric input/output")
+    return cleaned
+
+
+def estimate_cost(
+    runs: list[dict[str, Any]],
+    prices_per_m: dict[str, dict[str, float]] | None = None,
+    provider_model: str = "",
+) -> dict[str, Any]:
     if not runs:
         return {"available": False}
-    model = str(runs[0].get("model") or "")
-    prices = DEFAULT_PRICES_PER_M.get(model)
+    prices_per_m = prices_per_m or DEFAULT_PRICES_PER_M
+    model = next((str(run.get("model") or "").strip() for run in runs if run.get("model")), provider_model)
+    prices = prices_per_m.get(model)
     if not prices:
-        return {"available": False, "reason": f"no default price table for model {model}"}
+        hint_example = json.dumps({model or "model-id": {"input": 5.0, "output": 30.0}})
+        return {
+            "available": False,
+            "reason": (
+                f"no price table for model {model!r}. "
+                f"Pass --prices-file path/to/prices.json with USD per 1M tokens, e.g. {hint_example}"
+            ),
+        }
     tokens = {
         "input": sum((run.get("tokens") or {}).get("input", 0) for run in runs),
         "output": sum((run.get("tokens") or {}).get("output", 0) for run in runs),
@@ -805,6 +971,16 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
     speed_comparison = compare_speed(candidate, baseline)
     scores = score_candidate(candidate, baseline, clusters, feature_diff, quality_delta, input_ratio, total_ratio, speed_comparison)
     profile_comparison = compare_profile(baseline, quality_delta, input_ratio, total_ratio, speed_comparison, scores)
+    assessment = assess_result(
+        baseline_pass_rate=base_summary["pass_rate"],
+        candidate_pass_rate=cand_summary["pass_rate"],
+        quality_delta=quality_delta,
+        input_ratio=input_ratio,
+        total_ratio=total_ratio,
+        speed_comparison=speed_comparison,
+        feature_diff=feature_diff,
+        scores=scores,
+    )
 
     return {
         "summary": {
@@ -827,6 +1003,7 @@ def compare_against_baseline(candidate: dict[str, Any], baseline: dict[str, Any]
             "profile_comparison": profile_comparison,
             "feature_diff": feature_diff,
             "scores": scores,
+            "assessment": assessment,
         },
         "per_case": per_case,
     }
@@ -1017,16 +1194,48 @@ def compare_features(candidate: dict[str, Any], baseline: dict[str, Any]) -> dic
             return "ok"
         return f"failed:{snap.get('status')}"
 
+    def json_schema_status(probes: dict[str, Any]) -> str:
+        schema = probes.get("chat_json_schema")
+        if not schema:
+            return "not_run"
+        if schema.get("ok") and "schema_conforms" not in schema:
+            conforms, reason = _validate_probe_schema_text(str(schema.get("text") or ""))
+            schema = {**schema, "schema_conforms": conforms, "schema_error": reason}
+        if schema.get("ok") and schema.get("schema_conforms"):
+            return "conforms"
+        if schema.get("ok"):
+            return f"nonconforming:{schema.get('schema_error') or 'unknown'}"
+        return f"failed:{schema.get('status')}"
+
+    baseline_schema = json_schema_status(baseline)
+    candidate_schema = json_schema_status(candidate)
+    baseline_image = image_status(baseline)
+    candidate_image = image_status(candidate)
+    baseline_snapshot = snapshot_status(baseline)
+    candidate_snapshot = snapshot_status(candidate)
+    baseline_model_retrieve = (baseline.get("model_retrieve") or {}).get("status")
+    candidate_model_retrieve = (candidate.get("model_retrieve") or {}).get("status")
     return {
-        "baseline_image_generation": image_status(baseline),
-        "candidate_image_generation": image_status(candidate),
-        "image_generation_differs": image_status(baseline) != image_status(candidate),
-        "baseline_snapshot": snapshot_status(baseline),
-        "candidate_snapshot": snapshot_status(candidate),
-        "snapshot_differs": snapshot_status(baseline) != snapshot_status(candidate),
-        "baseline_model_retrieve_status": (baseline.get("model_retrieve") or {}).get("status"),
-        "candidate_model_retrieve_status": (candidate.get("model_retrieve") or {}).get("status"),
+        "baseline_image_generation": baseline_image,
+        "candidate_image_generation": candidate_image,
+        "image_generation_differs": baseline_image != candidate_image,
+        "image_generation_gap": baseline_image == "enabled" and candidate_image != "enabled",
+        "baseline_snapshot": baseline_snapshot,
+        "candidate_snapshot": candidate_snapshot,
+        "snapshot_differs": baseline_snapshot != candidate_snapshot,
+        "snapshot_gap": baseline_snapshot == "ok" and candidate_snapshot != "ok",
+        "baseline_model_retrieve_status": baseline_model_retrieve,
+        "candidate_model_retrieve_status": candidate_model_retrieve,
+        "model_retrieve_gap": is_success_status(baseline_model_retrieve) and not is_success_status(candidate_model_retrieve),
+        "baseline_json_schema": baseline_schema,
+        "candidate_json_schema": candidate_schema,
+        "json_schema_differs": baseline_schema != candidate_schema,
+        "json_schema_gap": baseline_schema == "conforms" and candidate_schema != "conforms",
     }
+
+
+def is_success_status(status: Any) -> bool:
+    return isinstance(status, int) and 200 <= status < 300
 
 
 def score_candidate(
@@ -1064,11 +1273,13 @@ def score_candidate(
     if cluster_rates and max(cluster_rates) - min(cluster_rates) >= 0.15:
         substitution_score += 35
 
-    if feature_diff.get("image_generation_differs"):
+    if feature_diff.get("image_generation_gap"):
         feature_score += 35
-    if feature_diff.get("snapshot_differs"):
+    if feature_diff.get("snapshot_gap"):
         feature_score += 20
-    if feature_diff.get("candidate_model_retrieve_status") != feature_diff.get("baseline_model_retrieve_status"):
+    if feature_diff.get("json_schema_gap"):
+        feature_score += 15
+    if feature_diff.get("model_retrieve_gap"):
         feature_score += 10
 
     latency_ratio = speed_comparison.get("median_latency_ratio")
@@ -1116,6 +1327,119 @@ def score_candidate(
     }
 
 
+def risk_level(overall_risk: float) -> str:
+    if overall_risk < 20:
+        return "low"
+    if overall_risk < 45:
+        return "moderate"
+    if overall_risk < 70:
+        return "high"
+    return "critical"
+
+
+def assess_result(
+    baseline_pass_rate: float,
+    candidate_pass_rate: float,
+    quality_delta: float,
+    input_ratio: float | None,
+    total_ratio: float | None,
+    speed_comparison: dict[str, Any],
+    feature_diff: dict[str, Any],
+    scores: dict[str, Any],
+) -> dict[str, Any]:
+    overall_risk = float(scores.get("overall_risk") or 0)
+    level = risk_level(overall_risk)
+    quality_gate = candidate_pass_rate >= max(0.95, baseline_pass_rate - 0.03)
+    substitution = float(scores.get("model_substitution_suspicion") or 0)
+    wrapper = float(scores.get("wrapper_or_routing_suspicion") or 0)
+    billing = float(scores.get("billing_overhead_suspicion") or 0)
+    feature = float(scores.get("feature_gap_suspicion") or 0)
+    speed = float(scores.get("speed_suspicion") or 0)
+
+    issues: list[str] = []
+    if not quality_gate:
+        issues.append("quality below baseline gate")
+    if substitution >= 35:
+        issues.append("possible model substitution")
+    if wrapper >= 50:
+        issues.append("stable wrapper/routing token overhead")
+    if billing >= 50:
+        issues.append("material token/cost overhead")
+    if feature >= 35:
+        issues.append("missing or different features vs baseline")
+    if speed >= 35:
+        issues.append("material speed regression")
+
+    if quality_gate and substitution < 35:
+        suitability = "usable_for_gpt_5_5_text"
+    elif candidate_pass_rate >= 0.9:
+        suitability = "limited_use_with_manual_review"
+    else:
+        suitability = "not_recommended"
+
+    if quality_gate and substitution < 35:
+        if level in {"low", "moderate"}:
+            verdict = "passes_text_quality_with_caveats"
+        else:
+            verdict = "passes_text_quality_but_provider_differs"
+    elif substitution >= 35:
+        verdict = "possible_substitution_or_quality_issue"
+    else:
+        verdict = "fails_quality_gate"
+
+    strengths: list[str] = []
+    if quality_gate:
+        strengths.append("hard-suite quality matched the baseline")
+    if speed < 20:
+        strengths.append("speed was close to baseline")
+    if input_ratio is not None and input_ratio <= 1.25 and total_ratio is not None and total_ratio <= 1.35:
+        strengths.append("token usage was close to baseline")
+    if (
+        feature < 35
+        and not feature_diff.get("image_generation_gap")
+        and not feature_diff.get("snapshot_gap")
+        and not feature_diff.get("json_schema_gap")
+        and not feature_diff.get("model_retrieve_gap")
+    ):
+        strengths.append("no feature gaps versus the baseline")
+
+    recommended_use = []
+    avoid_use = []
+    if suitability == "usable_for_gpt_5_5_text":
+        recommended_use.append("gpt-5.5 text workloads similar to this hard suite")
+    if feature >= 35:
+        avoid_use.append("workflows requiring missing baseline features")
+    if billing >= 50:
+        avoid_use.append("strict token-budget or transparent-billing comparisons without reviewing provider pricing")
+    if speed >= 35:
+        avoid_use.append("latency-sensitive production paths")
+    if substitution >= 35 or not quality_gate:
+        avoid_use.append("high-stakes workloads without a stronger trusted baseline and more repeats")
+
+    return {
+        "verdict": verdict,
+        "risk_level": level,
+        "quality_gate_passed": quality_gate,
+        "suitability": suitability,
+        "primary_issues": issues,
+        "strengths": strengths,
+        "recommended_use": recommended_use,
+        "avoid_use": avoid_use,
+        "plain_language": _plain_language_assessment(verdict, level, issues),
+    }
+
+
+def _plain_language_assessment(verdict: str, level: str, issues: list[str]) -> str:
+    if verdict == "passes_text_quality_with_caveats":
+        return "The candidate passed the text-quality gate, with caveats captured by the risk scores."
+    if verdict == "passes_text_quality_but_provider_differs":
+        issue_text = "; ".join(issues) if issues else "provider behavior differs from the baseline"
+        return f"The candidate passed text quality, but risk is {level} because {issue_text}."
+    if verdict == "possible_substitution_or_quality_issue":
+        return "The candidate shows quality or routing signals that may indicate weaker or mixed upstream behavior."
+    return "The candidate did not meet the quality gate against the baseline."
+
+
 def ratio(a: float, b: float) -> float | None:
     if not b:
         return None
@@ -1130,6 +1454,9 @@ def cost_ratio(candidate_cost: dict[str, Any], baseline_cost: dict[str, Any]) ->
 
 def save_json(path: str, data: dict[str, Any], *keys: str) -> None:
     text = json.dumps(data, ensure_ascii=False, indent=2)
+    directory = os.path.dirname(path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(redact(text, *keys))
         f.write("\n")
@@ -1215,6 +1542,19 @@ def print_audit_summary(report: dict[str, Any]) -> None:
             f"verdict={profile.get('verdict')}, "
             f"confidence={profile.get('confidence')}"
         )
+    assessment = summary.get("assessment", {})
+    if assessment:
+        print(
+            "Assessment: "
+            f"verdict={assessment.get('verdict')}, "
+            f"risk_level={assessment.get('risk_level')}, "
+            f"quality_gate_passed={assessment.get('quality_gate_passed')}, "
+            f"suitability={assessment.get('suitability')}"
+        )
+        if assessment.get("plain_language"):
+            print(f"Assessment note: {assessment.get('plain_language')}")
+        if assessment.get("primary_issues"):
+            print("Primary issues: " + "; ".join(str(x) for x in assessment.get("primary_issues", [])))
     print()
     print("Scores:")
     for key, value in scores.items():
@@ -1232,7 +1572,18 @@ def print_audit_summary(report: dict[str, Any]) -> None:
         print(f"- {key}: {value}")
 
 
+def _runtime_from_args(args: argparse.Namespace) -> RuntimeOptions:
+    prices = {model: model_prices.copy() for model, model_prices in DEFAULT_PRICES_PER_M.items()}
+    prices.update(_load_prices_file(getattr(args, "prices_file", "") or ""))
+    return RuntimeOptions(
+        prices_per_m=prices,
+        http_retries=0 if getattr(args, "no_retry", False) else DEFAULT_HTTP_RETRIES,
+        http_retry_delay=DEFAULT_HTTP_RETRY_DELAY,
+    )
+
+
 def cmd_baseline(args: argparse.Namespace) -> int:
+    runtime = _runtime_from_args(args)
     if args.current_codex:
         provider = load_current_codex_provider(args.model)
     else:
@@ -1242,7 +1593,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
             args.api_key or os.environ.get("PROVIDER_API_KEY", ""),
             args.model or DEFAULT_MODEL,
         )
-    data = run_suite(provider, args.repeats, args.reasoning_effort, args.timeout, args.image_probe)
+    data = run_suite(provider, args.repeats, args.reasoning_effort, args.timeout, args.image_probe, runtime)
     data["meta"] = {
         "artifact": "codex_probe_baseline",
         "generated_at_unix": int(time.time()),
@@ -1280,14 +1631,20 @@ def cmd_list_baselines(args: argparse.Namespace) -> int:
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
+    runtime = _runtime_from_args(args)
     baseline = load_baseline_arg(args)
-    provider = explicit_provider(
-        args.label,
-        args.base_url or os.environ.get("PROVIDER_BASE_URL", ""),
-        args.api_key or os.environ.get("PROVIDER_API_KEY", ""),
-        args.model or baseline["provider"]["model"],
-    )
-    candidate = run_suite(provider, args.repeats, args.reasoning_effort, args.timeout, args.image_probe)
+    if args.current_codex:
+        provider = load_current_codex_provider(args.model or baseline["provider"]["model"])
+        if args.label != "candidate":
+            provider = Provider(args.label, provider.base_url, provider.api_key, provider.model)
+    else:
+        provider = explicit_provider(
+            args.label,
+            args.base_url or os.environ.get("PROVIDER_BASE_URL", ""),
+            args.api_key or os.environ.get("PROVIDER_API_KEY", ""),
+            args.model or baseline["provider"]["model"],
+        )
+    candidate = run_suite(provider, args.repeats, args.reasoning_effort, args.timeout, args.image_probe, runtime)
     report = {
         "meta": {
             "artifact": "codex_probe_audit",
@@ -1297,6 +1654,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
                 "Model substitution suspicion rises when quality drops or one token/route cluster fails more often.",
                 "Wrapper/routing suspicion rises when input-token overhead forms stable tiers.",
                 "Feature gaps compare candidate against the trusted baseline, but may reflect provider policy rather than model quality.",
+                "Automatic HTTP retry applies only to idempotent requests by default; paid POST probes are single-shot unless code opts in.",
             ],
         },
         "baseline": baseline,
@@ -1313,10 +1671,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build Codex baselines and audit OpenAI-compatible relay purity.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
+    api_key_help = "API key. Prefer PROVIDER_API_KEY env var; passing via --api-key may be saved in shell history."
+    prices_help = "Path to a JSON file mapping model id to {input, output} USD per 1M tokens. Merges into the built-in price table."
+    no_retry_help = (
+        "Disable HTTP retry. By default only idempotent GET/HEAD/OPTIONS requests retry 5xx / transport errors "
+        "up to 2 times with exponential backoff; paid POST probes are single-shot."
+    )
+
     b = sub.add_parser("baseline", help="Generate a trusted baseline.")
     b.add_argument("--current-codex", action="store_true", help="Use ~/.codex/config.toml and ~/.codex/auth.json.")
     b.add_argument("--base-url", default="")
-    b.add_argument("--api-key", default="")
+    b.add_argument("--api-key", default="", help=api_key_help)
     b.add_argument("--label", default="baseline")
     b.add_argument("--profile", default="", help="Optional baseline profile label, e.g. codex-fast, codex-deep, official-xhigh.")
     b.add_argument("--model", default=DEFAULT_MODEL)
@@ -1324,6 +1689,8 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--reasoning-effort", default=DEFAULT_REASONING)
     b.add_argument("--timeout", type=int, default=120, help="Per-request timeout in seconds.")
     b.add_argument("--image-probe", action="store_true", help="Also test gpt-image-2. May consume image credits if enabled.")
+    b.add_argument("--prices-file", default="", help=prices_help)
+    b.add_argument("--no-retry", action="store_true", help=no_retry_help)
     b.add_argument("--output", default="baselines/current-codex-gpt-5.5-xhigh.json")
     b.set_defaults(func=cmd_baseline)
 
@@ -1334,14 +1701,17 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_group = a.add_mutually_exclusive_group(required=True)
     baseline_group.add_argument("--baseline", default="", help="Path to a baseline JSON file.")
     baseline_group.add_argument("--baseline-id", default="", help="Built-in baseline id. Run list-baselines to see available IDs.")
+    a.add_argument("--current-codex", action="store_true", help="Use ~/.codex/config.toml and ~/.codex/auth.json as the candidate provider.")
     a.add_argument("--base-url", default="")
-    a.add_argument("--api-key", default="")
+    a.add_argument("--api-key", default="", help=api_key_help)
     a.add_argument("--label", default="candidate")
     a.add_argument("--model", default="")
     a.add_argument("--repeats", type=int, default=2, help="Repeat each hard prompt. Higher values improve quality and speed confidence.")
     a.add_argument("--reasoning-effort", default=DEFAULT_REASONING)
     a.add_argument("--timeout", type=int, default=120, help="Per-request timeout in seconds.")
     a.add_argument("--image-probe", action="store_true", help="Also test gpt-image-2. May consume image credits if enabled.")
+    a.add_argument("--prices-file", default="", help=prices_help)
+    a.add_argument("--no-retry", action="store_true", help=no_retry_help)
     a.add_argument("--output", default="reports/codex-probe-audit.json")
     a.set_defaults(func=cmd_audit)
 

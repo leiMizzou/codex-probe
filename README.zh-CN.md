@@ -107,27 +107,28 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 
 ## 案例：agnx 对比内置基线
 
-用这份内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`、`gpt-5.5`、`xhigh`，结果如下：
+用这份内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`、`gpt-5.5`、`xhigh`，结果如下。数字来自 2026-05-25 15:48:14 UTC 的重测报告。
 
-这个候选服务的购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)。本轮测试里它质量全通过，延迟接近内置基线，作为 `gpt-5.5` xhigh 日常调用有价格和速度优势。它不适合需要 Codex、Spark、PPT 相关模型/能力或高并发的场景；实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准。
+这个候选服务的购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)。本轮测试里它文本质量全通过，延迟接近内置基线，作为 `gpt-5.5` xhigh 文本调用可用；但它不是全功能等价 provider，存在明显 input token / 成本开销，且 `gpt-image-2` 与 `gpt-5.5-2026-04-23` snapshot 不可用或失败。实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准。
 
 ```text
 Pass rate: baseline=1.0, candidate=1.0, delta=0.0
-Token ratio candidate/baseline: input=3.5119, output=0.9603, total=1.9963
-Estimated cost ratio: 1.2213
-Speed candidate/baseline: median_latency_ratio=1.0188, p90_latency_ratio=0.9849, output_tokens_per_s_ratio=0.9066
+Token ratio candidate/baseline: input=4.0058, output=0.9817, total=2.2096
+Estimated cost ratio: 1.291
+Speed candidate/baseline: median_latency_ratio=0.9683, p90_latency_ratio=1.0582, output_tokens_per_s_ratio=0.7709
 Profile match: verdict=unlikely_match, confidence=49.0
+Assessment: verdict=passes_text_quality_but_provider_differs, risk_level=high, quality_gate_passed=True
 
 quality_score: 100/100
 wrapper_or_routing_suspicion: 70/100
 model_substitution_suspicion: 0/100
-billing_overhead_suspicion: 89/100
+billing_overhead_suspicion: 100/100
 feature_gap_suspicion: 55/100
 speed_suspicion: 0/100
-overall_risk: 43.55/100
+overall_risk: 45.75/100
 ```
 
-解读：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，并形成 `+335` 左右的固定档位，说明存在隐藏 wrapper、适配器或路由差异的可能性。候选服务还缺少基线中可用的 `gpt-image-2` 和 snapshot 能力。
+解读：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，并形成 `+335` 左右的固定档位，说明存在隐藏 wrapper、适配器或路由差异的可能性。候选 `/models` 返回 17 个 ID，并包含若干 `gpt-5.*` / Codex 名称，但本轮只验证了 `gpt-5.5` 文本；`gpt-image-2` 返回 403，snapshot `gpt-5.5-2026-04-23` 返回 503。
 
 ## 分数解释
 

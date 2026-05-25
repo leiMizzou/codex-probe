@@ -32,7 +32,7 @@ Packaged baseline background:
 - Result: `32/32` passed, input `2770`, output `4052`, total `6822`, median latency `5.9155s`, p90 latency `8.9552s`.
 - Features: `gpt-image-2` returned `b64_json`; snapshot `gpt-5.5-2026-04-23` worked; `/models` listed 9 model IDs.
 
-In one reference audit, `https://www.agnx.run/v1` with `gpt-5.5` and `xhigh` also passed `32/32`, but used `3.5119x` the input tokens, formed a stable `+335` input-token tier, and lacked the baseline's working `gpt-image-2` and snapshot probes. The resulting scores were `quality_score=100`, `wrapper_or_routing_suspicion=70`, `model_substitution_suspicion=0`, `billing_overhead_suspicion=89`, `feature_gap_suspicion=55`, and `overall_risk=43.55`.
+In a 2026-05-25 15:48:14 UTC reference audit, `https://www.agnx.run/v1` with `gpt-5.5` and `xhigh` also passed `32/32`, but used `4.0058x` the input tokens, formed a stable `+335` input-token tier, and lacked the baseline's working `gpt-image-2` and snapshot probes (`gpt-image-2` returned 403; `gpt-5.5-2026-04-23` returned 503). The resulting scores were `quality_score=100`, `wrapper_or_routing_suspicion=70`, `model_substitution_suspicion=0`, `billing_overhead_suspicion=100`, `feature_gap_suspicion=55`, and `overall_risk=45.75`; the machine-readable assessment was `passes_text_quality_but_provider_differs` with `risk_level=high`.
 
 Scoring guidance:
 
