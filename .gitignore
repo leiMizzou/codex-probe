@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+build/
+dist/
+
+# Local experimental scripts from development; the packaged public CLI is provider_probe.py.
+provider_audit.py
+provider_compare.py
+PROVIDER_PROBE_README.md
+
+# Local provider probe outputs
+baselines/*.json
+reports/*.json
+*.summary.txt
+provider-audit-*.json
+provider-audit-*.txt
+current-codex-provider-*.json
+current-codex-provider-*.txt
+codex-vs-*-comparison*.json
+codex-vs-*-comparison*.txt
+agnx-*.json
+agnx-*.txt
+
+# Generated media and scratch outputs
+generated/
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store

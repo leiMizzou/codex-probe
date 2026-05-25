@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "provider-probe-audit"
+version = "0.1.0"
+description = "Black-box audit CLI for OpenAI-compatible model providers and API gateways."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Provider Probe contributors" }
+]
+keywords = [
+  "openai",
+  "llm",
+  "api-gateway",
+  "model-audit",
+  "provider-audit",
+  "token-usage"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = []
+
+[project.scripts]
+provider-probe = "provider_probe:main"
+
+[project.urls]
+Homepage = "https://github.com/leiMizzou/provider-probe"
+Issues = "https://github.com/leiMizzou/provider-probe/issues"
+
+[tool.setuptools]
+py-modules = ["provider_probe"]
+
+[tool.setuptools.exclude-package-data]
+"*" = [
+  "reports/*",
+  "baselines/*",
+  "generated/*",
+  "__pycache__/*"
+]
