@@ -239,6 +239,8 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 | `assessment` | `passes_text_quality_but_provider_differs` | 文本质量通过，但 provider 行为差异明显 |
 
 > **解读**：两边质量都满分，没有弱模型替换信号；但候选服务 input token 明显更高，形成 `+335` 左右的固定档位 —— 这是隐藏 wrapper / 适配器 / 路由差异的典型指纹。候选 `/models` 列出 17 个 ID，并包含若干 `gpt-5.*` / Codex 名称，但本轮只验证了 `gpt-5.5` 文本；`gpt-image-2` 返回 403，snapshot `gpt-5.5-2026-04-23` 返回 503。
+>
+> **关于"贵不贵"的客观补充**：input ratio 看起来涨到 **4.01×**，但 `Estimated cost ratio` 仅 **1.29×**。原因是 input 单价只有 output 的 1/6（gpt-5.5：$5 vs $30 per 1M），并且 `+335` 这种**稳定档位极有可能命中 prompt cache**（OpenAI cache 命中部分约按 10% input 单价计费）。所以 wrapper 的存在是真的，**但实际 ¥ 开销远小于 input token 倍数所暗示的水平**。下面"评分维度"小节有更详细的解释。
 
 ### 🎯 评分维度
 
@@ -252,6 +254,15 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 | `speed_suspicion` | median / p90 latency、输出 token/s 是否明显差于 baseline |
 | `profile_comparison` | baseline 用 `--profile codex-fast` 标注时，输出候选是否匹配该 baseline |
 | `overall_risk` | 综合风险评分 |
+
+> 💡 **怎么客观看待 input token 放大 / 计费风险**
+>
+> `wrapper_or_routing_suspicion` 和 `billing_overhead_suspicion` 都会因为候选 input token 偏高而升分。但 input token 放大**对最终钱袋负担的影响往往远小于 token 倍数所暗示的**，主要有两个原因：
+>
+> 1. **input 单价远低于 output 单价**。以 `gpt-5.5` 为例：input $5 / 1M、output $30 / 1M，比例约 **1 : 6**。只要 output token 接近 baseline，总成本不会被 input 放大成比例拉高。
+> 2. **稳定的 wrapper 前缀大概率命中 prompt cache**。如果中转方注入的是每次请求都相同的固定内容（典型征兆就是 `+335` 这种稳定档位），按 OpenAI Prompt Caching，命中部分约按 **10% 原 input 单价**计费，再次摊薄成本。
+>
+> 想看真实钱袋负担请直接读报告里的 `candidate_to_baseline_estimated_cost_ratio`（README 案例对比表里也列出了 "Estimated cost"）—— 这两个 suspicion 分数检出的是 **wrapper / 路由层的存在**，回答的是"是否有差异"，**不直接等价于"贵了多少倍"**。建议对照三个数一起看：input ratio + cost ratio + 是否存在稳定档位。
 
 ### 🚀 Codex Fast 模式判断
 
@@ -530,6 +541,8 @@ The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + 
 | `assessment` | `passes_text_quality_but_provider_differs` | Text quality passed, provider behavior differs |
 
 > **Reading**: both passed all cases, so no weak-model substitution signal. The candidate used much more input token budget and formed a stable `+335` tier, a typical fingerprint of hidden wrappers / adapters / routing differences. Candidate `/models` listed 17 IDs and included several `gpt-5.*` / Codex names, but this audit only validated `gpt-5.5` text; `gpt-image-2` returned 403 and snapshot `gpt-5.5-2026-04-23` returned 503.
+>
+> **Cost-impact caveat**: input ratio looks like **4.01×**, but `Estimated cost ratio` is only **1.29×**. Two reasons: input is 1/6 the price of output for `gpt-5.5` ($5 vs $30 per 1M tokens), and a stable `+335` tier is a **prime prompt-cache candidate** (OpenAI charges cached prefixes at ~10% of the input rate). So the wrapper layer is real, **but the actual dollar overhead is much smaller than the input-token multiple suggests**. See the "Score reference" subsection below for the full reasoning.
 
 ### 🎯 Score reference
 
@@ -543,6 +556,15 @@ The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + 
 | `speed_suspicion` | Materially slower by median / p90 latency or output tokens/s |
 | `profile_comparison` | When baseline has `--profile`, reports whether candidate matches that profile |
 | `overall_risk` | Weighted summary |
+
+> 💡 **Reading input-token inflation in context**
+>
+> Both `wrapper_or_routing_suspicion` and `billing_overhead_suspicion` flag input-token growth. But the impact on actual **dollar cost** is usually much smaller than the raw token multiple suggests, for two reasons:
+>
+> 1. **Input is much cheaper than output**. For `gpt-5.5`: input $5 / 1M, output $30 / 1M — a **~1 : 6 ratio**. As long as output stays near the baseline, total cost won't scale with input inflation.
+> 2. **A stable wrapper prefix is a prime prompt-cache candidate**. If the relay injects identical fixed content on every call (the giveaway: a stable `+335` tier), OpenAI Prompt Caching charges cached prefixes at **~10% of the input rate**, further damping the cost impact.
+>
+> For the real wallet impact, read `candidate_to_baseline_estimated_cost_ratio` in the report (and the "Estimated cost" row in this README's case tables). These two suspicion scores detect the **existence of a wrapper / routing layer** — they answer "is there a difference," not "how much more expensive." Read the three numbers together: input ratio + cost ratio + whether a stable tier exists.
 
 ### 🚀 Reading speed results
 
