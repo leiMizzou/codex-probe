@@ -9,7 +9,7 @@
 
 <sub>
 
-[🇨🇳 简体中文](#-简体中文) &nbsp;·&nbsp; [🇬🇧 English](#-english) &nbsp;·&nbsp; [📋 题库 Suite](model_substitution_hard_suite.md) &nbsp;·&nbsp; [📖 完整中文文档](README.zh-CN.md)
+[🇨🇳 简体中文](#-简体中文) &nbsp;·&nbsp; [🇬🇧 English](#-english) &nbsp;·&nbsp; [✨ 推荐中转 Recommended](#-推荐中转-recommended-providers) &nbsp;·&nbsp; [📋 题库 Suite](model_substitution_hard_suite.md) &nbsp;·&nbsp; [📖 完整中文文档](README.zh-CN.md)
 
 </sub>
 
@@ -20,6 +20,39 @@
 > 用你信任的 Codex provider 作为 baseline，对第三方中转跑同一套复杂题、功能探针和速度指标，输出 token / 质量 / 功能 / 速度差异和综合风险评分。
 >
 > Build a trusted baseline from a provider you already trust, then audit any candidate endpoint against it with the same hard suite, feature probes, and timing measurements.
+
+---
+
+## ✨ 推荐中转 Recommended providers
+
+**已通过 hard-v1 黑盒测试** · Passed the hard-v1 black-box audit
+
+| Provider | Endpoint | 测试配置 / Tested with | Quality | Overall risk | 购买入口 / Purchase |
+|---|---|---|---|---|---|
+| **agnx** | `https://www.agnx.run/v1` | `gpt-5.5` · `xhigh` · hard-v1 | **100 / 100** ✅ | 45.75 / 100 🟡 | [pay.ldxp.cn/shop/7TD7O3QI](https://pay.ldxp.cn/shop/7TD7O3QI) |
+
+**入选条件 / Inclusion criteria**
+
+- `quality_score = 100 / 100`（hard-v1 全通过）
+- `model_substitution_suspicion = 0 / 100`（无弱模型替换信号）
+- `speed_suspicion = 0 / 100`（速度近 baseline）
+- `overall_risk < 50`（综合风险中等偏下）
+
+> 通过黑盒测试 ≠ 全功能等价 provider。每一项推荐都附了"适合 / 不适合"清单，使用前请先看下方对应案例分析里的 token、功能和速度细节。
+>
+> Passing the black-box audit does **not** mean a candidate is feature-equivalent to the baseline. Each entry has a per-case "best for / avoid" list — read the matching case study below before relying on it.
+>
+> 实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准。Pricing, availability, permissions, stability, concurrency, and support are governed by the vendor page.
+
+#### 各候选的适用面 / Suitability cheat sheet
+
+| Provider | ✅ 适合 / Best for | ❌ 不适合 / Avoid |
+|---|---|---|
+| **agnx** | 日常 `gpt-5.5 xhigh` 文本调用，文本质量近 baseline、延迟接近、价格 / 速度有优势<br>Day-to-day `gpt-5.5 xhigh` text workloads where quality and latency matter and price/speed are the lever | Codex / Spark / PPT 相关模型；需要 `gpt-image-2` 或 snapshot ID；高并发或严格 token 预算<br>Codex / Spark / PPT-related models; workflows needing `gpt-image-2` or snapshot IDs; high concurrency or strict token budgets |
+
+> 详细评分、token 档位、速度比、功能探针结果见下方各语言区"案例：agnx 对比内置基线 / Case study: agnx vs the built-in baseline"小节。
+>
+> Detailed scores, token tiers, speed ratios, and feature probe results: see the "Case study" subsection inside each language section below.
 
 ---
 
