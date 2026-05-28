@@ -27,9 +27,9 @@
 
 **已通过 hard-v1 黑盒测试** · Passed the hard-v1 black-box audit
 
-| Provider | Endpoint | 测试配置 / Tested with | Quality | Overall risk | 购买入口 / Purchase |
+| Provider | Endpoint | 测试配置 / Tested with | Quality | Overall risk | 状态 / Status |
 |---|---|---|---|---|---|
-| **agnx** | `https://www.agnx.run/v1` | `gpt-5.5` · `xhigh` · hard-v1 | **100 / 100** ✅ | 45.75 / 100 🟡 | [pay.ldxp.cn/shop/7TD7O3QI](https://pay.ldxp.cn/shop/7TD7O3QI) |
+| **agnx** | `https://www.agnx.run/v1` | `gpt-5.5` · `xhigh` · hard-v1 | **100 / 100** ✅ | 45.75 / 100 🟡 | 已挂，待恢复；购买入口已移除<br>Down, pending recovery; purchase link removed |
 
 **入选条件 / Inclusion criteria**
 
@@ -42,13 +42,13 @@
 >
 > Passing the black-box audit does **not** mean a candidate is feature-equivalent to the baseline. Each entry has a per-case "best for / avoid" list — read the matching case study below before relying on it.
 >
-> 实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准。Pricing, availability, permissions, stability, concurrency, and support are governed by the vendor page.
+> 状态为"已挂"的服务暂不提供购买入口，恢复并复测前不建议新购或依赖。Providers marked "down" intentionally have no purchase link and should not be newly purchased or relied on until recovery is verified.
 
 #### 各候选的适用面 / Suitability cheat sheet
 
 | Provider | ✅ 适合 / Best for | ❌ 不适合 / Avoid |
 |---|---|---|
-| **agnx** | 日常 `gpt-5.5 xhigh` 文本调用，文本质量近 baseline、延迟接近、价格 / 速度有优势<br>Day-to-day `gpt-5.5 xhigh` text workloads where quality and latency matter and price/speed are the lever | Codex / Spark / PPT 相关模型；需要 `gpt-image-2` 或 snapshot ID；高并发或严格 token 预算<br>Codex / Spark / PPT-related models; workflows needing `gpt-image-2` or snapshot IDs; high concurrency or strict token budgets |
+| **agnx** | 已挂，待恢复；恢复并复测前暂不建议新购或依赖<br>Down, pending recovery; not recommended for new purchase or dependency until verified again | 恢复前的所有生产、长期依赖和新购场景<br>All production, long-lived dependency, and new-purchase use before recovery |
 
 > 详细评分、token 档位、速度比、功能探针结果见下方各语言区"案例：agnx 对比内置基线 / Case study: agnx vs the built-in baseline"小节。
 >
@@ -214,8 +214,7 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 
 > **结论**：文本质量满分、延迟接近基线，作为日常 `gpt-5.5 xhigh` 文本调用可用；但它不是全功能等价 provider。候选服务有明显 input token / 成本开销，且本轮探针确认 `gpt-image-2` 与 `gpt-5.5-2026-04-23` snapshot 不可用或失败。
 >
-> 候选服务购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)
-> （实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准）
+> **当前状态**：已挂，待恢复；购买入口已移除。下面保留的是 2026-05-25 15:48:14 UTC 的历史测试结果，恢复后需要重新复测。
 
 #### 关键指标
 
@@ -532,7 +531,7 @@ The current Codex-configured `https://www.agnx.run/v1` audited with `gpt-5.5` + 
 
 > **Summary**: passed all text-quality cases, with latency close to the baseline; usable for daily `gpt-5.5 xhigh` text workloads. It is not a full feature-equivalent provider: the rerun shows material input-token / estimated-cost overhead, and `gpt-image-2` plus the `gpt-5.5-2026-04-23` snapshot were unavailable or failed.
 >
-> Candidate purchase link: [candidate that passed the current `gpt-5.5` + `xhigh` hard-v1 comparison](https://pay.ldxp.cn/shop/7TD7O3QI) (pricing, availability, permissions, stability, concurrency, and support are governed by the vendor page).
+> **Current status**: down, pending recovery; purchase link removed. The numbers below are the historical 2026-05-25 15:48:14 UTC audit and should be rerun after recovery.
 
 #### Key ratios
 

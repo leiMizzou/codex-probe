@@ -109,7 +109,7 @@ id: official-sub2api-20x-fast-16c16g-gpt-5.5-xhigh
 
 用这份内置基线测试当前 Codex 配置里的 `https://www.agnx.run/v1`、`gpt-5.5`、`xhigh`，结果如下。数字来自 2026-05-25 15:48:14 UTC 的重测报告。
 
-这个候选服务的购买入口：[通过当前 `gpt-5.5` + `xhigh` hard-v1 对比测试的候选服务](https://pay.ldxp.cn/shop/7TD7O3QI)。本轮测试里它文本质量全通过，延迟接近内置基线，作为 `gpt-5.5` xhigh 文本调用可用；但它不是全功能等价 provider，存在明显 input token / 成本开销，且 `gpt-image-2` 与 `gpt-5.5-2026-04-23` snapshot 不可用或失败。实际价格、库存、权限、稳定性、并发限制和售后以商家页面为准。
+当前状态：已挂，待恢复；购买入口已移除。本轮历史测试里它文本质量全通过，延迟接近内置基线，作为 `gpt-5.5` xhigh 文本调用曾可用；但它不是全功能等价 provider，存在明显 input token / 成本开销，且 `gpt-image-2` 与 `gpt-5.5-2026-04-23` snapshot 不可用或失败。恢复并复测前不建议新购或依赖。
 
 ```text
 Pass rate: baseline=1.0, candidate=1.0, delta=0.0
